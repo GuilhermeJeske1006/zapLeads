@@ -12,7 +12,7 @@ class ProspectingSearch extends Model
     use HasFactory;
 
     protected $fillable = [
-        'loja_id',
+        'empresa_id',
         'descricao_empresa',
         'tipo_cliente',
         'latitude',
@@ -31,9 +31,9 @@ class ProspectingSearch extends Model
         'keywords' => 'array',
     ];
 
-    public function loja(): BelongsTo
+    public function empresa(): BelongsTo
     {
-        return $this->belongsTo(Loja::class);
+        return $this->belongsTo(Empresa::class);
     }
 
     public function leads(): HasMany
@@ -41,4 +41,3 @@ class ProspectingSearch extends Model
         return $this->hasMany(Lead::class, 'prospecting_search_id');
     }
 }
-

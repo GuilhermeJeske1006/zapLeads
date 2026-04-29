@@ -12,7 +12,7 @@ return [
 
     // Nav
     'nav_dashboard' => 'Panel',
-    'nav_lojas' => 'Mis Tiendas',
+    'nav_empresa' => 'Mi Empresa',
     'nav_chat' => 'Chat',
     'nav_leads' => 'Contactos',
     'nav_campaigns' => 'Campañas',
@@ -38,6 +38,8 @@ return [
     'my_stores' => 'Mis Tiendas',
     'new_store' => 'Nueva Tienda',
     'edit_store' => 'Editar Tienda',
+    'empresa' => 'Empresa',
+    'edit_empresa' => 'Editar Empresa',
     'view_catalog' => 'Ver Catálogo',
     'no_stores_yet' => 'Aún no tienes tiendas.',
     'create_first_store' => 'Crear primera tienda →',
@@ -98,6 +100,7 @@ return [
     'loja_created' => '¡Tienda creada con éxito!',
     'loja_updated' => '¡Tienda actualizada con éxito!',
     'loja_deleted' => '¡Tienda eliminada con éxito!',
+    'empresa_updated' => '¡Empresa actualizada con éxito!',
     'produto_created' => '¡Producto creado con éxito!',
     'produto_updated' => '¡Producto actualizado con éxito!',
     'produto_deleted' => '¡Producto eliminado con éxito!',

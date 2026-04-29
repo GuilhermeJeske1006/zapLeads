@@ -4,7 +4,7 @@ namespace App\Livewire\Campaign;
 
 use App\Jobs\ProcessCampaignJob;
 use App\Models\Campaign;
-use App\Models\Loja;
+use App\Models\Empresa;
 use App\Services\AIService;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -14,7 +14,7 @@ class CampaignManager extends Component
 {
     use WithFileUploads, WithPagination;
 
-    public Loja $loja;
+    public Empresa $empresa;
     public bool $showModal = false;
     public bool $showAISuggest = false;
     public array $aiSuggestion = [];
@@ -57,7 +57,7 @@ class CampaignManager extends Component
         }
 
         $campaign = Campaign::create([
-            'loja_id' => $this->loja->id,
+            'empresa_id' => $this->empresa->id,
             'nome' => $this->nome,
             'mensagem' => $this->mensagem,
             'imagem' => $imagemPath,
@@ -65,7 +65,7 @@ class CampaignManager extends Component
             'status' => 'draft',
         ]);
 
-        $leads = $this->loja->leads()
+        $leads = $this->empresa->leads()
             ->when($this->filterNearby, fn ($q) => $q->where('is_nearby', true))
             ->when($this->minScore > 0, fn ($q) => $q->where('lead_score', '>=', $this->minScore))
             ->get();
@@ -87,7 +87,7 @@ class CampaignManager extends Component
     public function getAISuggestion(AIService $ai): void
     {
         try {
-            $leads = $this->loja->leads()->limit(100)->get()->toArray();
+            $leads = $this->empresa->leads()->limit(100)->get()->toArray();
             $this->aiSuggestion = $ai->sugerirCampanha($leads, $this->mensagem);
             $this->showAISuggest = true;
         } catch (\Throwable $e) {
@@ -106,7 +106,7 @@ class CampaignManager extends Component
 
     public function render()
     {
-        $campaigns = Campaign::where('loja_id', $this->loja->id)
+        $campaigns = Campaign::where('empresa_id', $this->empresa->id)
             ->orderByDesc('created_at')
             ->paginate(10);
 

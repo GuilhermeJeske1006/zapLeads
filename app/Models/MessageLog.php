@@ -11,15 +11,15 @@ class MessageLog extends Model
     use HasFactory;
 
     protected $fillable = [
-        'loja_id', 'telefone', 'mensagem', 'tipo', 'direcao', 'status', 'zapi_response',
+        'empresa_id', 'telefone', 'mensagem', 'tipo', 'direcao', 'status', 'provider_response',
     ];
 
     protected $casts = [
-        'zapi_response' => 'array',
+        'provider_response' => 'array',
     ];
 
-    public function loja(): BelongsTo
+    public function empresa(): BelongsTo
     {
-        return $this->belongsTo(Loja::class);
+        return $this->belongsTo(Empresa::class);
     }
 }

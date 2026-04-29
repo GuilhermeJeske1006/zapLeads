@@ -5,10 +5,12 @@ namespace App\Livewire\Chat;
 use App\Events\MessageSent;
 use App\Jobs\SendWhatsAppMessageJob;
 use App\Models\Conversation;
-use App\Models\Loja;
+use App\Models\Empresa;
 use App\Models\Message;
+use App\Models\WhatsAppChannel;
 use App\Repositories\ConversationRepository;
 use App\Services\AIService;
+use Illuminate\Support\Collection;
 use Livewire\Component;
 
 class ChatPanel extends Component
@@ -19,23 +21,24 @@ class ChatPanel extends Component
     public string $search = '';
     public string $aiSuggestion = '';
     public bool $loadingAI = false;
+    public ?int $selectedChannelId = null;
 
     protected ConversationRepository $conversationRepo;
     protected AIService $aiService;
-    protected Loja $loja;
+    protected Empresa $empresa;
 
     public function boot(ConversationRepository $conversationRepo, AIService $aiService): void
     {
         $this->conversationRepo = $conversationRepo;
         $this->aiService = $aiService;
-        $this->loja = auth()->user()->lojas()->first();
+        $this->empresa = auth()->user()->empresa()->firstOrCreate([]);
     }
 
     public function getListeners(): array
     {
-        $lojaId = $this->loja?->id;
+        $empresaId = $this->empresa?->id;
         return [
-            "echo-private:loja.{$lojaId}.chat,.message.received" => 'onMessageReceived',
+            "echo-private:empresa.{$empresaId}.chat,.message.received" => 'onMessageReceived',
             "echo-private:conversation.{$this->activeConversationId},.message.sent" => 'onMessageStatusUpdated',
             "echo-private:conversation.{$this->activeConversationId},.message.status.updated" => 'onMessageStatusUpdated',
         ];
@@ -48,7 +51,29 @@ class ChatPanel extends Component
         $this->conversationRepo->markAsRead($this->activeConversation);
         $this->aiSuggestion = '';
 
+        $this->selectedChannelId = $this->activeConversation->whatsapp_channel_id
+            ?? $this->empresa->defaultChannel()?->id;
+
         $this->dispatch('conversation-selected', id: $id);
+    }
+
+    public function changeChannel(int $channelId): void
+    {
+        if (!$this->activeConversation) {
+            return;
+        }
+
+        $channel = WhatsAppChannel::where('id', $channelId)
+            ->where('empresa_id', $this->empresa->id)
+            ->first();
+
+        if (!$channel) {
+            return;
+        }
+
+        $this->selectedChannelId = $channelId;
+        $this->activeConversation->update(['whatsapp_channel_id' => $channelId]);
+        $this->activeConversation->refresh();
     }
 
     public function sendMessage(): void
@@ -114,14 +139,18 @@ class ChatPanel extends Component
 
     public function render()
     {
-        $conversations = $this->loja
-            ? $this->conversationRepo->getForLoja($this->loja, $this->search)
-            : collect();
+        $conversations = $this->conversationRepo->getForEmpresa($this->empresa, $this->search);
 
         $messages = $this->activeConversation
             ? $this->activeConversation->messages()->orderBy('created_at')->get()
             : collect();
 
-        return view('livewire.chat.chat-panel', compact('conversations', 'messages'));
+        $channels = WhatsAppChannel::where('empresa_id', $this->empresa->id)
+            ->where('ativo', true)
+            ->orderByDesc('is_default')
+            ->orderBy('nome')
+            ->get();
+
+        return view('livewire.chat.chat-panel', compact('conversations', 'messages', 'channels'));
     }
 }

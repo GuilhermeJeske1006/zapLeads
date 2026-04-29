@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\Loja;
+use App\Models\Empresa;
 
 class GeoService
 {
@@ -21,23 +21,23 @@ class GeoService
         return round(self::EARTH_RADIUS_KM * $c, 2);
     }
 
-    public function isNearby(Loja $loja, float $lat, float $lon): bool
+    public function isNearby(Empresa $empresa, float $lat, float $lon): bool
     {
-        if (!$loja->latitude || !$loja->longitude) {
+        if (!$empresa->latitude || !$empresa->longitude) {
             return false;
         }
 
-        $distance = $this->haversine($loja->latitude, $loja->longitude, $lat, $lon);
-        return $distance <= $loja->raio_atendimento;
+        $distance = $this->haversine($empresa->latitude, $empresa->longitude, $lat, $lon);
+        return $distance <= $empresa->raio_atendimento;
     }
 
-    public function calcularDistancia(Loja $loja, float $lat, float $lon): float
+    public function calcularDistancia(Empresa $empresa, float $lat, float $lon): float
     {
-        if (!$loja->latitude || !$loja->longitude) {
+        if (!$empresa->latitude || !$empresa->longitude) {
             return 0;
         }
 
-        return $this->haversine($loja->latitude, $loja->longitude, $lat, $lon);
+        return $this->haversine($empresa->latitude, $empresa->longitude, $lat, $lon);
     }
 
     public function calcularLeadScore(float $distancia, float $raio): int

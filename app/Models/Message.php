@@ -12,7 +12,7 @@ class Message extends Model
 
     protected $fillable = [
         'conversation_id', 'sender', 'message', 'type',
-        'media_url', 'status', 'zapi_message_id', 'ai_generated',
+        'media_url', 'status', 'twilio_message_sid', 'ai_generated',
     ];
 
     protected $casts = [

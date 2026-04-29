@@ -3,15 +3,15 @@
 namespace App\Repositories;
 
 use App\Models\Conversation;
-use App\Models\Loja;
+use App\Models\Empresa;
 use Illuminate\Database\Eloquent\Collection;
 
 class ConversationRepository
 {
-    public function getForLoja(Loja $loja, string $search = ''): Collection
+    public function getForEmpresa(Empresa $empresa, string $search = ''): Collection
     {
         return Conversation::query()
-            ->where('loja_id', $loja->id)
+            ->where('empresa_id', $empresa->id)
             ->where('status', 'active')
             ->when($search, fn ($q) => $q->where(function ($q) use ($search) {
                 $q->where('nome_contato', 'like', "%{$search}%")
@@ -23,10 +23,10 @@ class ConversationRepository
             ->get();
     }
 
-    public function findOrCreateByPhone(Loja $loja, string $phone, string $nome = null): Conversation
+    public function findOrCreateByPhone(Empresa $empresa, string $phone, string $nome = null): Conversation
     {
         return Conversation::firstOrCreate(
-            ['loja_id' => $loja->id, 'telefone' => $phone],
+            ['empresa_id' => $empresa->id, 'telefone' => $phone],
             ['nome_contato' => $nome, 'status' => 'active']
         );
     }

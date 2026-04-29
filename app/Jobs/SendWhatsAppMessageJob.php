@@ -25,19 +25,20 @@ class SendWhatsAppMessageJob implements ShouldQueue
     public function handle(WhatsAppService $whatsApp): void
     {
         $conversation = $this->message->conversation;
-        $phone = $conversation->telefone;
+        $phone        = $conversation->telefone;
+        $empresaId    = $conversation->empresa_id;
+        $channel      = $conversation->whatsappChannel;
 
         $result = match ($this->message->type) {
-            'image' => $whatsApp->sendImageMessage($phone, $this->message->media_url, $this->message->message),
-            default => $whatsApp->sendTextMessage($phone, $this->message->message),
+            'image' => $whatsApp->sendImageMessage($phone, $this->message->media_url, $this->message->message, $empresaId, $channel),
+            default => $whatsApp->sendTextMessage($phone, $this->message->message, $empresaId, $channel),
         };
 
         $status = $result['success'] ? 'sent' : 'failed';
-        $zapiId = $result['data']['zaapId'] ?? $result['data']['messageId'] ?? null;
 
         $this->message->update([
-            'status' => $status,
-            'zapi_message_id' => $zapiId,
+            'status'             => $status,
+            'twilio_message_sid' => $result['data']['sid'] ?? null,
         ]);
 
         if (!$result['success']) {

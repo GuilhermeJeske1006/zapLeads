@@ -11,7 +11,7 @@ class Produto extends Model
     use HasFactory;
 
     protected $fillable = [
-        'loja_id', 'nome', 'preco', 'descricao', 'imagem', 'ativo', 'ordem',
+        'empresa_id', 'nome', 'preco', 'descricao', 'imagem', 'ativo', 'ordem',
     ];
 
     protected $casts = [
@@ -19,9 +19,9 @@ class Produto extends Model
         'ativo' => 'boolean',
     ];
 
-    public function loja(): BelongsTo
+    public function empresa(): BelongsTo
     {
-        return $this->belongsTo(Loja::class);
+        return $this->belongsTo(Empresa::class);
     }
 
     public function getImagemUrlAttribute(): string

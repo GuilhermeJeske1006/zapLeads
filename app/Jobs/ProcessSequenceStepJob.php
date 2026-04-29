@@ -37,7 +37,7 @@ class ProcessSequenceStepJob implements ShouldQueue
         }
 
         $steps = $enrollment->sequence->steps()->orderBy('ordem')->get();
-        $step = $steps->get($enrollment->current_step);
+        $step  = $steps->get($enrollment->current_step);
 
         if (!$step) {
             $enrollment->update(['status' => 'completed']);
@@ -46,19 +46,21 @@ class ProcessSequenceStepJob implements ShouldQueue
 
         $text = str_replace(
             ['{nome}', '{loja}'],
-            [$lead->nome, $lead->loja->nome],
+            [$lead->nome, $lead->empresa?->nome],
             $step->mensagem
         );
 
+        $channel = $lead->empresa?->defaultChannel();
+
         $result = $step->tipo === 'image' && $step->imagem
-            ? $whatsApp->sendImageMessage($lead->telefone, asset('storage/' . $step->imagem), $text)
-            : $whatsApp->sendTextMessage($lead->telefone, $text);
+            ? $whatsApp->sendImageMessage($lead->telefone, asset('storage/' . $step->imagem), $text, $lead->empresa_id, $channel)
+            : $whatsApp->sendTextMessage($lead->telefone, $text, $lead->empresa_id, $channel);
 
         if (!$result['success']) {
             Log::warning('ProcessSequenceStepJob send failed', [
                 'enrollment_id' => $enrollment->id,
-                'step' => $enrollment->current_step,
-                'error' => $result['error'] ?? null,
+                'step'          => $enrollment->current_step,
+                'error'         => $result['error'] ?? null,
             ]);
         }
 

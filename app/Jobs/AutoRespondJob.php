@@ -25,9 +25,9 @@ class AutoRespondJob implements ShouldQueue
 
     public function handle(AIService $ai, WhatsAppService $whatsApp): void
     {
-        $loja = $this->conversation->loja;
+        $empresa = $this->conversation->empresa;
 
-        if (!$loja->bot_ativo) {
+        if (!$empresa?->bot_ativo) {
             return;
         }
 
@@ -39,18 +39,25 @@ class AutoRespondJob implements ShouldQueue
 
         $message = Message::create([
             'conversation_id' => $this->conversation->id,
-            'sender' => 'user',
-            'message' => $aiResponse,
-            'type' => 'text',
-            'status' => 'sending',
-            'ai_generated' => true,
+            'sender'          => 'user',
+            'message'         => $aiResponse,
+            'type'            => 'text',
+            'status'          => 'sending',
+            'ai_generated'    => true,
         ]);
 
-        $result = $whatsApp->sendTextMessage($this->conversation->telefone, $aiResponse);
+        $channel = $this->conversation->whatsappChannel;
+
+        $result = $whatsApp->sendTextMessage(
+            $this->conversation->telefone,
+            $aiResponse,
+            $this->conversation->empresa_id,
+            $channel
+        );
 
         $message->update([
-            'status' => $result['success'] ? 'sent' : 'failed',
-            'zapi_message_id' => $result['data']['zaapId'] ?? null,
+            'status'             => $result['success'] ? 'sent' : 'failed',
+            'twilio_message_sid' => $result['data']['sid'] ?? null,
         ]);
     }
 }

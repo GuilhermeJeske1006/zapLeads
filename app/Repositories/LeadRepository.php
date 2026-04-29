@@ -3,16 +3,16 @@
 namespace App\Repositories;
 
 use App\Models\Lead;
-use App\Models\Loja;
+use App\Models\Empresa;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
 class LeadRepository
 {
-    public function getAllForLoja(Loja $loja, array $filters = []): LengthAwarePaginator
+    public function getAllForEmpresa(Empresa $empresa, array $filters = []): LengthAwarePaginator
     {
         return Lead::query()
-            ->where('loja_id', $loja->id)
+            ->where('empresa_id', $empresa->id)
             ->when($filters['is_nearby'] ?? false, fn ($q) => $q->where('is_nearby', true))
             ->when($filters['min_score'] ?? null, fn ($q, $v) => $q->where('lead_score', '>=', $v))
             ->when($filters['cidade'] ?? null, fn ($q, $v) => $q->where('cidade', $v))
@@ -20,17 +20,17 @@ class LeadRepository
             ->paginate(20);
     }
 
-    public function getNearbyLeads(Loja $loja): Collection
+    public function getNearbyLeads(Empresa $empresa): Collection
     {
-        return Lead::where('loja_id', $loja->id)
+        return Lead::where('empresa_id', $empresa->id)
             ->where('is_nearby', true)
             ->orderByDesc('lead_score')
             ->get();
     }
 
-    public function getStats(Loja $loja): array
+    public function getStats(Empresa $empresa): array
     {
-        $leads = Lead::where('loja_id', $loja->id);
+        $leads = Lead::where('empresa_id', $empresa->id);
 
         return [
             'total' => (clone $leads)->count(),

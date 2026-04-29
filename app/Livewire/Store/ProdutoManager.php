@@ -2,7 +2,7 @@
 
 namespace App\Livewire\Store;
 
-use App\Models\Loja;
+use App\Models\Empresa;
 use App\Models\Produto;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -12,7 +12,7 @@ class ProdutoManager extends Component
 {
     use WithFileUploads, WithPagination;
 
-    public Loja $loja;
+    public Empresa $empresa;
     public bool $showModal = false;
     public ?int $editingId = null;
 
@@ -42,7 +42,7 @@ class ProdutoManager extends Component
 
     public function openEdit(int $id): void
     {
-        $produto = Produto::findOrFail($id);
+        $produto = Produto::where('empresa_id', $this->empresa->id)->findOrFail($id);
         $this->editingId = $id;
         $this->nome = $produto->nome;
         $this->preco = $produto->preco;
@@ -54,7 +54,7 @@ class ProdutoManager extends Component
     public function save(): void
     {
         $data = $this->validate();
-        $data['loja_id'] = $this->loja->id;
+        $data['empresa_id'] = $this->empresa->id;
 
         if ($this->imagem) {
             $data['imagem'] = $this->imagem->store('products', 'public');
@@ -63,7 +63,7 @@ class ProdutoManager extends Component
         }
 
         if ($this->editingId) {
-            Produto::findOrFail($this->editingId)->update($data);
+            Produto::where('empresa_id', $this->empresa->id)->findOrFail($this->editingId)->update($data);
             $this->dispatch('toast', type: 'success', message: __('messages.produto_updated'));
         } else {
             Produto::create($data);
@@ -76,19 +76,19 @@ class ProdutoManager extends Component
 
     public function toggleAtivo(int $id): void
     {
-        $produto = Produto::findOrFail($id);
+        $produto = Produto::where('empresa_id', $this->empresa->id)->findOrFail($id);
         $produto->update(['ativo' => !$produto->ativo]);
     }
 
     public function delete(int $id): void
     {
-        Produto::findOrFail($id)->delete();
+        Produto::where('empresa_id', $this->empresa->id)->findOrFail($id)->delete();
         $this->dispatch('toast', type: 'success', message: __('messages.produto_deleted'));
     }
 
     public function render()
     {
-        $produtos = $this->loja->produtos()->orderBy('ordem')->paginate(12);
+        $produtos = $this->empresa->produtos()->orderBy('ordem')->paginate(12);
         return view('livewire.store.produto-manager', compact('produtos'));
     }
 }

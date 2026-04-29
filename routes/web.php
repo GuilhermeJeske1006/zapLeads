@@ -2,9 +2,9 @@
 
 use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EmpresaController;
 use App\Http\Controllers\LangController;
 use App\Http\Controllers\LeadController;
-use App\Http\Controllers\LojaController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicCatalogoController;
 use App\Http\Controllers\WebhookController;
@@ -18,9 +18,9 @@ Route::get('/loja/{slug}', [PublicCatalogoController::class, 'show'])->name('cat
 Route::post('/loja/{slug}/lead', [PublicCatalogoController::class, 'capturarLead'])->name('catalogo.lead');
 
 // Webhook (no CSRF, no auth)
-Route::post('/webhook/zapi', [WebhookController::class, 'zapi'])
+Route::post('/webhook/twilio', [WebhookController::class, 'twilio'])
     ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class])
-    ->name('webhook.zapi');
+    ->name('webhook.twilio');
 
 // Breeze auth routes
 require __DIR__ . '/auth.php';
@@ -36,11 +36,8 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'set.locale'])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
-    Route::resource('lojas', LojaController::class);
-    Route::get('/lojas/{loja}/produtos', function (\App\Models\Loja $loja) {
-        abort_unless(auth()->id() === $loja->user_id, 403);
-        return view('lojas.produtos', compact('loja'));
-    })->name('store.produtos');
+    Route::get('/empresa', [EmpresaController::class, 'edit'])->name('empresa.edit');
+    Route::put('/empresa', [EmpresaController::class, 'update'])->name('empresa.update');
 
     Route::get('/chat', fn () => view('chat.index'))->name('chat.index');
     Route::get('/leads', [LeadController::class, 'index'])->name('leads.index');

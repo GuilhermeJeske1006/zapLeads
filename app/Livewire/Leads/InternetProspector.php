@@ -2,7 +2,7 @@
 
 namespace App\Livewire\Leads;
 
-use App\Models\Loja;
+use App\Models\Empresa;
 use App\Models\Lead;
 use App\Models\ProspectingSearch;
 use App\Models\Conversation;
@@ -14,7 +14,7 @@ use Livewire\Component;
 
 class InternetProspector extends Component
 {
-    public Loja $loja;
+    public Empresa $empresa;
 
     public string $descricaoEmpresa = '';
     public string $tipoCliente = '';
@@ -35,11 +35,11 @@ class InternetProspector extends Component
 
     public function mount(): void
     {
-        $this->descricaoEmpresa = (string) ($this->loja->descricao_empresa ?? '');
-        $this->tipoCliente = (string) ($this->loja->tipo_cliente_alvo ?? '');
-        $this->endereco = (string) ($this->loja->endereco ?? '');
-        $this->cidade = (string) ($this->loja->cidade ?? '');
-        $this->raioBuscaKm = (float) ($this->loja->raio_atendimento ?? 5);
+        $this->descricaoEmpresa = (string) ($this->empresa->descricao_empresa ?? '');
+        $this->tipoCliente = (string) ($this->empresa->tipo_cliente_alvo ?? '');
+        $this->endereco = (string) ($this->empresa->endereco ?? '');
+        $this->cidade = (string) ($this->empresa->cidade ?? '');
+        $this->raioBuscaKm = (float) ($this->empresa->raio_atendimento ?? 5);
     }
 
     public function buscar(): void
@@ -58,7 +58,7 @@ class InternetProspector extends Component
             'raioBuscaKm.required' => 'Informe o raio de busca.',
         ]);
 
-        $this->loja->update([
+        $this->empresa->update([
             'descricao_empresa' => $this->descricaoEmpresa,
             'tipo_cliente_alvo' => $this->tipoCliente,
             'endereco' => $this->endereco,
@@ -73,7 +73,7 @@ class InternetProspector extends Component
         $this->dispatchedAt = now()->utc()->toDateTimeString();
 
         FindInternetLeadsJob::dispatch(
-            $this->loja->id,
+            $this->empresa->id,
             $this->descricaoEmpresa,
             $this->tipoCliente,
             $this->raioBuscaKm,
@@ -86,7 +86,7 @@ class InternetProspector extends Component
             return;
         }
 
-        $search = ProspectingSearch::where('loja_id', $this->loja->id)
+        $search = ProspectingSearch::where('empresa_id', $this->empresa->id)
             ->where('created_at', '>=', $this->dispatchedAt)
             ->orderByDesc('created_at')
             ->first();
@@ -108,7 +108,7 @@ class InternetProspector extends Component
             return;
         }
 
-        $this->resultados = Lead::where('loja_id', $this->loja->id)
+        $this->resultados = Lead::where('empresa_id', $this->empresa->id)
             ->where('prospecting_search_id', $search->id)
             ->orderByDesc('lead_score')
             ->limit(80)
@@ -118,12 +118,12 @@ class InternetProspector extends Component
             ->all();
 
         $this->buscaFeita = true;
-        $this->dispatch('internet-leads-updated', leads: $this->resultados, loja: $this->loja->fresh());
+        $this->dispatch('internet-leads-updated', leads: $this->resultados, empresa: $this->empresa->fresh());
     }
 
     public function enviarMensagemIA(int $leadId, AIService $ai): void
     {
-        $lead = $this->loja->leads()->findOrFail($leadId);
+        $lead = $this->empresa->leads()->findOrFail($leadId);
 
         if (!trim((string) $lead->telefone)) {
             $this->dispatch('toast', type: 'error', message: 'Este lead não tem telefone disponível.');
@@ -131,11 +131,11 @@ class InternetProspector extends Component
         }
 
         $conversation = Conversation::firstOrCreate(
-            ['loja_id' => $this->loja->id, 'telefone' => $lead->telefone],
+            ['empresa_id' => $this->empresa->id, 'telefone' => $lead->telefone],
             ['lead_id' => $lead->id, 'nome_contato' => $lead->nome, 'status' => 'active']
         );
 
-        $text = $ai->gerarPrimeiraMensagemProspeccao($this->loja, $lead);
+        $text = $ai->gerarPrimeiraMensagemProspeccao($this->empresa, $lead);
         if (!trim($text)) {
             $this->dispatch('toast', type: 'error', message: 'Não foi possível gerar a mensagem. Tente novamente.');
             return;
@@ -146,7 +146,7 @@ class InternetProspector extends Component
             'sender' => 'user',
             'message' => $text,
             'type' => 'text',
-            'status' => 'queued',
+            'status' => 'sending',
             'ai_generated' => true,
         ]);
 
@@ -161,9 +161,15 @@ class InternetProspector extends Component
         $this->dispatch('toast', type: 'success', message: 'Mensagem enviada pela IA (fila).');
     }
 
+    public function verNaTabelaDeLeads(): void
+    {
+        $this->dispatch('leads-table-filter', source: 'internet', prospectingSearchId: $this->searchId);
+        $this->dispatch('scroll-to-leads-table');
+    }
+
     public function abrirModal(int $leadId): void
     {
-        $lead = $this->loja->leads()->find($leadId);
+        $lead = $this->empresa->leads()->find($leadId);
         if (!$lead) {
             return;
         }
@@ -184,7 +190,7 @@ class InternetProspector extends Component
             return;
         }
 
-        $lead = $this->loja->leads()->find($leadId);
+        $lead = $this->empresa->leads()->find($leadId);
         if (!$lead) {
             return;
         }

@@ -1,7 +1,7 @@
 <div class="space-y-6">
 
     {{-- Form --}}
-    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+    {{-- <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
         <div class="flex items-center gap-3 mb-5">
             <div class="w-9 h-9 bg-violet-500/10 rounded-xl flex items-center justify-center">
                 <svg class="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -70,7 +70,7 @@
             <span wire:loading.remove wire:target="buscar">Buscar clientes ideais</span>
             <span wire:loading wire:target="buscar">Analisando leads...</span>
         </button>
-    </div>
+    </div> --}}
 
     {{-- Results --}}
     @if ($buscaFeita)

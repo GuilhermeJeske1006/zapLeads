@@ -3,5 +3,5 @@
 
     @stack('scripts')
 
-    <livewire:dashboard.dashboard-panel :loja="$loja" />
+    <livewire:dashboard.dashboard-panel :empresa="$empresa" />
 </x-app-layout>

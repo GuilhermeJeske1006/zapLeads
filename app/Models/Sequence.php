@@ -9,15 +9,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Sequence extends Model
 {
     protected $fillable = [
-        'loja_id',
+        'empresa_id',
         'nome',
         'status',
         'trigger',
     ];
 
-    public function loja(): BelongsTo
+    public function empresa(): BelongsTo
     {
-        return $this->belongsTo(Loja::class);
+        return $this->belongsTo(Empresa::class);
     }
 
     public function steps(): HasMany

@@ -7,106 +7,123 @@ use App\Events\NewMessageReceived;
 use App\Jobs\AutoRespondJob;
 use App\Models\Conversation;
 use App\Models\Lead;
-use App\Models\Loja;
+use App\Models\Empresa;
 use App\Models\Message;
 use App\Models\SequenceEnrollment;
-use Illuminate\Http\JsonResponse;
+use App\Models\WhatsAppChannel;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 
 class WebhookController extends Controller
 {
-    public function zapi(Request $request): JsonResponse
+    public function twilio(Request $request): Response
     {
         $payload = $request->all();
-        Log::info('Z-API Webhook received', $payload);
+        Log::info('Twilio Webhook received', $payload);
 
-        // Z-API sends different event types
-        $type = $payload['type'] ?? null;
+        $status     = $payload['MessageStatus'] ?? $payload['SmsStatus'] ?? null;
+        $messageSid = $payload['MessageSid'] ?? null;
 
-        if ($type === 'ReceivedCallback') {
-            $this->handleIncomingMessage($payload);
-        } elseif ($type === 'MessageStatusCallback') {
-            $this->handleStatusCallback($payload);
+        if ($messageSid && $status && !isset($payload['Body'])) {
+            $this->handleStatusCallback($messageSid, $status);
+            return response('', 204);
         }
 
-        return response()->json(['ok' => true]);
+        if (isset($payload['Body'])) {
+            $this->handleIncomingMessage($payload);
+        }
+
+        return response('', 204);
     }
 
     private function handleIncomingMessage(array $payload): void
     {
-        $phone = $payload['phone'] ?? null;
-        $text = $payload['text']['message'] ?? null;
-        $zapiId = $payload['messageId'] ?? null;
-        $nome = $payload['senderName'] ?? null;
+        $rawFrom    = $payload['From'] ?? null;  // "whatsapp:+5511999999999"
+        $toNumber   = $payload['To'] ?? null;    // "whatsapp:+5511000000000" (empresa's number)
+        $text       = $payload['Body'] ?? null;
+        $messageSid = $payload['MessageSid'] ?? null;
+        $profileName = $payload['ProfileName'] ?? null;
 
-        if (!$phone || !$text) {
+        if (!$rawFrom || $text === null) {
             return;
         }
 
-        // Find loja by instance — in multi-tenant, use X-Loja-ID header or dedicated instance per loja
-        $lojaId = request()->header('X-Loja-ID');
-        $loja = $lojaId ? Loja::find($lojaId) : Loja::first();
+        $phone = preg_replace('/\D/', '', $rawFrom);
 
-        if (!$loja) {
+        $channel = $toNumber
+            ? WhatsAppChannel::where('numero', $toNumber)->with('empresa')->first()
+            : null;
+
+        $empresa = $channel?->empresa ?? Empresa::first();
+
+        if (!$empresa) {
             return;
         }
 
         $conversation = Conversation::firstOrCreate(
-            ['loja_id' => $loja->id, 'telefone' => $phone],
-            ['nome_contato' => $nome, 'status' => 'active']
+            ['empresa_id' => $empresa->id, 'telefone' => $phone],
+            [
+                'nome_contato'        => $profileName,
+                'whatsapp_channel_id' => $channel?->id,
+                'status'              => 'active',
+            ]
         );
 
+        if ($conversation->whatsapp_channel_id === null && $channel !== null) {
+            $conversation->update(['whatsapp_channel_id' => $channel->id]);
+        }
+
         $message = Message::create([
-            'conversation_id' => $conversation->id,
-            'sender' => 'lead',
-            'message' => $text,
-            'type' => 'text',
-            'status' => 'delivered',
-            'zapi_message_id' => $zapiId,
+            'conversation_id'    => $conversation->id,
+            'sender'             => 'lead',
+            'message'            => $text,
+            'type'               => 'text',
+            'status'             => 'delivered',
+            'twilio_message_sid' => $messageSid,
         ]);
 
         $conversation->update([
-            'last_message' => $text,
+            'last_message'    => $text,
             'last_message_at' => now(),
-            'unread_count' => $conversation->unread_count + 1,
+            'unread_count'    => $conversation->unread_count + 1,
         ]);
 
         broadcast(new NewMessageReceived($message, $conversation));
 
-        $this->checkOptOut($loja, $phone, $text, $conversation);
+        $this->checkOptOut($empresa, $phone, $text, $conversation);
 
-        if ($loja->bot_ativo && $conversation->status !== 'blocked' && $this->isBotActiveNow($loja)) {
+        if ($empresa->bot_ativo && $conversation->status !== 'blocked' && $this->isBotActiveNow($empresa)) {
             AutoRespondJob::dispatch($conversation, $text)->delay(now()->addSeconds(3));
         }
     }
 
-    private function handleStatusCallback(array $payload): void
+    private function handleStatusCallback(string $messageSid, string $status): void
     {
-        $zapiMessageId = $payload['messageId'] ?? null;
-        $newStatus = strtolower($payload['status'] ?? '');
-
-        if (!$zapiMessageId || !in_array($newStatus, ['sent', 'delivered', 'read', 'failed'])) {
+        $normalized = strtolower($status);
+        if (!in_array($normalized, ['sent', 'delivered', 'read', 'failed', 'undelivered'])) {
             return;
         }
 
-        $message = Message::where('zapi_message_id', $zapiMessageId)->first();
+        $finalStatus = $normalized === 'undelivered' ? 'failed' : $normalized;
+
+        $message = Message::where('twilio_message_sid', $messageSid)->first();
         if (!$message) return;
 
-        $message->update(['status' => $newStatus]);
+        $message->update(['status' => $finalStatus]);
         broadcast(new MessageStatusUpdated($message));
     }
 
-    private function isBotActiveNow(Loja $loja): bool
+    private function isBotActiveNow(Empresa $empresa): bool
     {
-        if (!$loja->bot_horario_inicio || !$loja->bot_horario_fim) {
+        if (!$empresa->bot_horario_inicio || !$empresa->bot_horario_fim) {
             return true;
         }
         $now = now()->format('H:i:s');
-        return $now >= $loja->bot_horario_inicio && $now <= $loja->bot_horario_fim;
+        return $now >= $empresa->bot_horario_inicio && $now <= $empresa->bot_horario_fim;
     }
 
-    private function checkOptOut(Loja $loja, string $phone, string $text, Conversation $conversation): void
+    private function checkOptOut(Empresa $empresa, string $phone, string $text, Conversation $conversation): void
     {
         $optOutKeywords = ['sair', 'stop', 'parar', 'cancelar', 'não quero', 'nao quero', 'remover'];
 
@@ -114,7 +131,7 @@ class WebhookController extends Controller
             return;
         }
 
-        $lead = Lead::where('loja_id', $loja->id)->where('telefone', $phone)->first();
+        $lead = Lead::where('empresa_id', $empresa->id)->where('telefone', $phone)->first();
 
         if ($lead && !$lead->isOptedOut()) {
             $lead->update(['opted_out_at' => now()]);

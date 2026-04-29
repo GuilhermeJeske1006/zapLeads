@@ -13,12 +13,10 @@ class LeadController extends Controller
 
     public function index(): View
     {
-        $loja = auth()->user()->lojas()->first();
+        $empresa = auth()->user()->empresa()->firstOrCreate([]);
 
-        $leads = $loja
-            ? $this->leadRepo->getAllForLoja($loja, request()->only('is_nearby', 'min_score', 'cidade'))
-            : collect();
+        $leads = $this->leadRepo->getAllForEmpresa($empresa, request()->only('is_nearby', 'min_score', 'cidade'));
 
-        return view('leads.index', compact('leads', 'loja'));
+        return view('leads.index', compact('leads', 'empresa'));
     }
 }

@@ -24,7 +24,7 @@ class NewMessageReceived implements ShouldBroadcast
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel("loja.{$this->conversation->loja_id}.chat"),
+            new PrivateChannel("empresa.{$this->conversation->empresa_id}.chat"),
             new PrivateChannel("conversation.{$this->conversation->id}"),
         ];
     }

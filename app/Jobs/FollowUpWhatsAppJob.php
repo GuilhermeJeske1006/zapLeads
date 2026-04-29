@@ -22,13 +22,14 @@ class FollowUpWhatsAppJob implements ShouldQueue
 
     public function handle(WhatsAppService $whatsApp): void
     {
-        $loja = $this->lead->loja;
+        $empresa = $this->lead->empresa;
+        $channel = $empresa?->defaultChannel();
 
         $message = __('messages.follow_up_message', [
             'nome' => $this->lead->nome,
-            'loja' => $loja->nome,
+            'loja' => $empresa?->nome,
         ]);
 
-        $whatsApp->sendTextMessage($this->lead->telefone, $message);
+        $whatsApp->sendTextMessage($this->lead->telefone, $message, $this->lead->empresa_id, $channel);
     }
 }

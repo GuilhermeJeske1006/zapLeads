@@ -6,23 +6,29 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\WhatsAppChannel;
 
-class Loja extends Model
+class Empresa extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'user_id', 'nome', 'whatsapp', 'endereco', 'cidade',
-        'latitude', 'longitude', 'raio_atendimento', 'slug', 'logo', 'ativo',
-        'descricao_empresa', 'tipo_cliente_alvo',
-        'bot_ativo', 'bot_horario_inicio', 'bot_horario_fim',
-    ];
-
-    protected $casts = [
-        'latitude' => 'float',
-        'longitude' => 'float',
-        'ativo' => 'boolean',
-        'bot_ativo' => 'boolean',
+        'user_id',
+        'nome',
+        'whatsapp',
+        'endereco',
+        'cidade',
+        'latitude',
+        'longitude',
+        'raio_atendimento',
+        'slug',
+        'logo',
+        'ativo',
+        'descricao_empresa',
+        'tipo_cliente_alvo',
+        'bot_ativo',
+        'bot_horario_inicio',
+        'bot_horario_fim',
     ];
 
     public function user(): BelongsTo
@@ -48,6 +54,24 @@ class Loja extends Model
     public function campaigns(): HasMany
     {
         return $this->hasMany(Campaign::class);
+    }
+
+    public function sequences(): HasMany
+    {
+        return $this->hasMany(Sequence::class);
+    }
+
+    public function whatsappChannels(): HasMany
+    {
+        return $this->hasMany(WhatsAppChannel::class);
+    }
+
+    public function defaultChannel(): ?WhatsAppChannel
+    {
+        return $this->whatsappChannels()
+            ->where('ativo', true)
+            ->orderByDesc('is_default')
+            ->first();
     }
 
     public function getLogoUrlAttribute(): string

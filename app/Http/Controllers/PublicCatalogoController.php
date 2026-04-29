@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\CaptureLeadRequest;
-use App\Models\Loja;
+use App\Models\Empresa;
 use App\Services\LeadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
@@ -16,29 +16,29 @@ class PublicCatalogoController extends Controller
 
     public function show(string $slug): View
     {
-        $loja = Loja::where('slug', $slug)->where('ativo', true)->firstOrFail();
-        $produtos = $loja->produtos()->where('ativo', true)->orderBy('ordem')->get();
+        $empresa = Empresa::where('slug', $slug)->where('ativo', true)->firstOrFail();
+        $produtos = $empresa->produtos()->where('ativo', true)->orderBy('ordem')->get();
 
-        return view('public.catalogo', compact('loja', 'produtos'));
+        return view('public.catalogo', ['loja' => $empresa, 'produtos' => $produtos]);
     }
 
     public function capturarLead(CaptureLeadRequest $request, string $slug): JsonResponse
     {
-        $loja = Loja::where('slug', $slug)->where('ativo', true)->firstOrFail();
+        $empresa = Empresa::where('slug', $slug)->where('ativo', true)->firstOrFail();
 
-        $lead = $this->leadService->capturar($loja, $request->validated());
+        $lead = $this->leadService->capturar($empresa, $request->validated());
 
         return response()->json([
             'success' => true,
-            'whatsapp_url' => $this->buildWhatsAppUrl($loja, $lead->nome),
+            'whatsapp_url' => $this->buildWhatsAppUrl($empresa, $lead->nome),
             'is_nearby' => $lead->is_nearby,
         ]);
     }
 
-    private function buildWhatsAppUrl(Loja $loja, string $nome): string
+    private function buildWhatsAppUrl(Empresa $empresa, string $nome): string
     {
-        $message = urlencode(__('messages.whatsapp_greeting', ['nome' => $nome, 'loja' => $loja->nome]));
-        $phone = preg_replace('/\D/', '', $loja->whatsapp);
+        $message = urlencode(__('messages.whatsapp_greeting', ['nome' => $nome, 'loja' => $empresa->nome]));
+        $phone = preg_replace('/\D/', '', $empresa->whatsapp);
         return "https://wa.me/{$phone}?text={$message}";
     }
 }

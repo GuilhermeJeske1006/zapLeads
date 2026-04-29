@@ -30,11 +30,17 @@ class ProcessCampaignJob implements ShouldQueue
             ->whereNull('opted_out_at')
             ->get();
 
+        $channelCache = [];
+
         foreach ($leads as $lead) {
             try {
+                $empresaId = $lead->empresa_id;
+                $channelCache[$empresaId] ??= $lead->empresa->defaultChannel();
+                $channel = $channelCache[$empresaId];
+
                 $result = $this->campaign->imagem
-                    ? $whatsApp->sendImageMessage($lead->telefone, asset('storage/' . $this->campaign->imagem), $this->campaign->mensagem)
-                    : $whatsApp->sendTextMessage($lead->telefone, $this->campaign->mensagem);
+                    ? $whatsApp->sendImageMessage($lead->telefone, asset('storage/' . $this->campaign->imagem), $this->campaign->mensagem, $empresaId, $channel)
+                    : $whatsApp->sendTextMessage($lead->telefone, $this->campaign->mensagem, $empresaId, $channel);
 
                 $status = $result['success'] ? 'sent' : 'failed';
 
@@ -49,7 +55,7 @@ class ProcessCampaignJob implements ShouldQueue
                     $this->campaign->increment('total_erros');
                 }
 
-                sleep(2); // Z-API rate limit
+                usleep(500000); // 0.5s between sends
             } catch (\Throwable) {
                 $this->campaign->increment('total_erros');
             }

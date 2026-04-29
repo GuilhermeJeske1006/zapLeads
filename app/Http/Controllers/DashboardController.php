@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Loja;
+use App\Models\Empresa;
 use App\Repositories\LeadRepository;
 use Illuminate\View\View;
 
@@ -14,15 +14,11 @@ class DashboardController extends Controller
 
     public function index(): View
     {
-        $loja = auth()->user()->lojas()->first();
+        $empresa = auth()->user()->empresa()->firstOrCreate([]);
 
-        if (!$loja) {
-            return view('dashboard.no-loja');
-        }
-
-        $stats = $this->leadRepo->getStats($loja);
-        $conversasAtivas = $loja->conversations()->where('status', 'active')->count();
-        $totalRespostas = $loja->conversations()
+        $stats = $this->leadRepo->getStats($empresa);
+        $conversasAtivas = $empresa->conversations()->where('status', 'active')->count();
+        $totalRespostas = $empresa->conversations()
             ->whereHas('messages', fn ($q) => $q->where('sender', 'user'))
             ->count();
 
@@ -30,6 +26,6 @@ class DashboardController extends Controller
             ? round(($totalRespostas / $stats['total']) * 100, 1)
             : 0;
 
-        return view('dashboard.index', compact('loja', 'stats', 'conversasAtivas', 'taxaResposta'));
+        return view('dashboard.index', compact('empresa', 'stats', 'conversasAtivas', 'taxaResposta'));
     }
 }

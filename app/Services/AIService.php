@@ -5,7 +5,7 @@ namespace App\Services;
 use Anthropic\Client as AnthropicClient;
 use App\Models\Lead;
 use App\Models\Conversation;
-use App\Models\Loja;
+use App\Models\Empresa;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -207,12 +207,12 @@ PROMPT;
         }
     }
 
-    public function gerarPrimeiraMensagemProspeccao(Loja $loja, Lead $lead): string
+    public function gerarPrimeiraMensagemProspeccao(Empresa $empresa, Lead $lead): string
     {
         $contexto = [
             'empresa' => [
-                'nome' => $loja->nome,
-                'descricao' => $loja->descricao_empresa,
+                'nome' => $empresa->nome,
+                'descricao' => $empresa->descricao_empresa,
             ],
             'lead' => [
                 'nome' => $lead->nome,

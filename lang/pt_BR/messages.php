@@ -12,7 +12,7 @@ return [
 
     // Nav
     'nav_dashboard' => 'Dashboard',
-    'nav_lojas' => 'Minhas Lojas',
+    'nav_empresa' => 'Minha Empresa',
     'nav_chat' => 'Chat',
     'nav_leads' => 'Leads',
     'nav_campaigns' => 'Campanhas',
@@ -34,14 +34,10 @@ return [
     'recent_leads' => 'Leads Recentes',
     'recent_conversations' => 'Conversas Recentes',
 
-    // Store
-    'my_stores' => 'Minhas Lojas',
-    'new_store' => 'Nova Loja',
-    'edit_store' => 'Editar Loja',
+    // Empresa
+    'empresa' => 'Empresa',
+    'edit_empresa' => 'Editar Empresa',
     'view_catalog' => 'Ver Catálogo',
-    'no_stores_yet' => 'Você ainda não tem lojas.',
-    'create_first_store' => 'Criar primeira loja →',
-    'back_to_stores' => 'Voltar para lojas',
 
     // Products
     'products' => 'Produtos',
@@ -98,6 +94,7 @@ return [
     'loja_created' => 'Loja criada com sucesso!',
     'loja_updated' => 'Loja atualizada com sucesso!',
     'loja_deleted' => 'Loja excluída com sucesso!',
+    'empresa_updated' => 'Empresa atualizada com sucesso!',
     'produto_created' => 'Produto criado com sucesso!',
     'produto_updated' => 'Produto atualizado com sucesso!',
     'produto_deleted' => 'Produto excluído com sucesso!',

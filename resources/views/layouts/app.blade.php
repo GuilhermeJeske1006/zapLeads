@@ -11,6 +11,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
     @stack('styles')
+    <style>[x-cloak] { display: none !important; }</style>
 </head>
 <body class="bg-gray-950 text-gray-100 font-inter antialiased" x-data="{ sidebarOpen: true }">
 

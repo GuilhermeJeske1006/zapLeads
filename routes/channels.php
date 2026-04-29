@@ -7,11 +7,15 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
 });
 
 Broadcast::channel('loja.{lojaId}.chat', function ($user, $lojaId) {
-    return (bool) $user->lojas()->where('id', $lojaId)->exists();
+    return false;
 });
 
 Broadcast::channel('conversation.{conversationId}', function ($user, $conversationId) {
     $conversation = \App\Models\Conversation::find($conversationId);
     if (!$conversation) return false;
-    return (bool) $user->lojas()->where('id', $conversation->loja_id)->exists();
+    return (bool) ($user->empresa?->id) && (int) $user->empresa->id === (int) $conversation->empresa_id;
+});
+
+Broadcast::channel('empresa.{empresaId}.chat', function ($user, $empresaId) {
+    return (bool) ($user->empresa?->id) && (int) $user->empresa->id === (int) $empresaId;
 });

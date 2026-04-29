@@ -67,69 +67,6 @@
         </div>
     </div>
 
-    {{-- Lead Modal --}}
-    <div id="lead-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="lead-modal-backdrop"></div>
-        <div class="relative bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md shadow-2xl">
-            <div class="flex items-center justify-between p-5 border-b border-gray-800">
-                <div class="flex items-center gap-3">
-                    <div id="modal-score-badge" class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold"></div>
-                    <div>
-                        <h3 id="modal-nome" class="text-sm font-semibold text-white"></h3>
-                        <p id="modal-cidade" class="text-xs text-gray-400"></p>
-                    </div>
-                </div>
-                <button id="lead-modal-close" class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                </button>
-            </div>
-            <div class="p-5 space-y-3">
-                <div id="modal-row-telefone" class="hidden items-center gap-3 text-sm">
-                    <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
-                    </svg>
-                    <span id="modal-telefone" class="text-gray-300"></span>
-                </div>
-                <div id="modal-row-endereco" class="hidden items-center gap-3 text-sm">
-                    <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                    </svg>
-                    <span id="modal-endereco" class="text-gray-300"></span>
-                </div>
-                <div id="modal-row-website" class="hidden items-center gap-3 text-sm">
-                    <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"/>
-                    </svg>
-                    <a id="modal-website" href="#" target="_blank" class="text-blue-400 hover:underline truncate"></a>
-                </div>
-                <div class="flex items-center gap-3 text-sm">
-                    <svg class="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-                    </svg>
-                    <span id="modal-distancia" class="text-gray-300"></span>
-                </div>
-                <div id="modal-row-insights" class="hidden">
-                    <div class="mt-1 bg-gray-800 rounded-xl p-3">
-                        <p class="text-xs text-emerald-400 font-medium mb-1">IA Insights</p>
-                        <p id="modal-insights-text" class="text-xs text-gray-300"></p>
-                    </div>
-                </div>
-            </div>
-            <div class="px-5 pb-5">
-                <a id="modal-whatsapp-btn" href="#" target="_blank"
-                   class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-xl transition-colors">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-                        <path d="M12 0C5.373 0 0 5.373 0 12c0 2.104.547 4.082 1.5 5.8L0 24l6.336-1.48A11.934 11.934 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.885 0-3.655-.493-5.19-1.357l-.374-.22-3.862.902.944-3.752-.242-.387A9.937 9.937 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
-                    </svg>
-                    Abrir no WhatsApp
-                </a>
-            </div>
-        </div>
-    </div>
-
     {{-- Recent Leads & Conversations --}}
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
@@ -181,126 +118,107 @@
 
 @push('scripts')
 <script>
-document.addEventListener('livewire:initialized', function () {
-    const loja = @json($loja);
-    const leads = @json($recentLeads);
+(function () {
+    const mapboxToken = @json(config('services.mapbox.token'));
+    const mapboxStyle = @json(config('services.mapbox.style', 'mapbox/streets-v12'));
+    const loja  = @json($empresa);
+    const leads = @json($allLeads);
 
-    if (!loja.latitude) return;
+    let map          = null;
+    let markersLayer = null;
 
-    const map = L.map('map').setView([loja.latitude, loja.longitude], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    function initMap() {
+        if (map || !loja?.latitude || !loja?.longitude) return;
 
-    // Store marker
-    const storeIcon = L.divIcon({
-        className: '',
-        html: `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
-            <path d="M14 0C6.27 0 0 6.27 0 14c0 9.625 14 22 14 22s14-12.375 14-22C28 6.27 21.73 0 14 0z" fill="#22c55e" stroke="#fff" stroke-width="1.5"/>
-            <circle cx="14" cy="14" r="6" fill="#fff"/>
-        </svg>`,
-        iconSize: [28, 36],
-        iconAnchor: [14, 36],
-    });
+        map = L.map('map').setView([loja.latitude, loja.longitude], 12);
 
-    L.marker([loja.latitude, loja.longitude], { icon: storeIcon })
-        .bindPopup(`<b>${loja.nome}</b>`)
-        .addTo(map);
-
-    // Radius circle
-    L.circle([loja.latitude, loja.longitude], {
-        radius: loja.raio_atendimento * 1000,
-        color: '#22c55e',
-        fillColor: '#22c55e',
-        fillOpacity: 0.05,
-        weight: 1,
-    }).addTo(map);
-
-    // Modal helpers
-    const modal     = document.getElementById('lead-modal');
-    const backdrop  = document.getElementById('lead-modal-backdrop');
-    const closeBtn  = document.getElementById('lead-modal-close');
-
-    function showRow(id, value, display = 'flex') {
-        const el = document.getElementById(id);
-        if (value) {
-            el.classList.remove('hidden');
-            el.style.display = display;
+        if (mapboxToken) {
+            L.tileLayer(`https://api.mapbox.com/styles/v1/${mapboxStyle}/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`, {
+                tileSize: 512, zoomOffset: -1, attribution: '© OpenStreetMap © Mapbox',
+            }).addTo(map);
         } else {
-            el.classList.add('hidden');
-            el.style.display = '';
-        }
-    }
-
-    function openModal(lead) {
-        const score = lead.lead_score ?? 0;
-        const color = score >= 80 ? '#ef4444' : score >= 50 ? '#f59e0b' : '#6b7280';
-        const bgColor = score >= 80 ? 'rgba(239,68,68,0.15)' : score >= 50 ? 'rgba(245,158,11,0.15)' : 'rgba(107,114,128,0.15)';
-
-        const badge = document.getElementById('modal-score-badge');
-        badge.textContent = score;
-        badge.style.color = color;
-        badge.style.backgroundColor = bgColor;
-
-        document.getElementById('modal-nome').textContent = lead.nome ?? '';
-        document.getElementById('modal-cidade').textContent = lead.cidade ?? '';
-        document.getElementById('modal-distancia').textContent = lead.distancia_km
-            ? `${parseFloat(lead.distancia_km).toFixed(1)} km de distância`
-            : '';
-
-        document.getElementById('modal-telefone').textContent = lead.telefone ?? '';
-        showRow('modal-row-telefone', lead.telefone);
-
-        document.getElementById('modal-endereco').textContent = lead.endereco ?? '';
-        showRow('modal-row-endereco', lead.endereco);
-
-        const websiteEl = document.getElementById('modal-website');
-        websiteEl.textContent = lead.website ?? '';
-        websiteEl.href = lead.website ?? '#';
-        showRow('modal-row-website', lead.website);
-
-        const insights = lead.ai_insights?.resumo ?? lead.ai_insights?.summary ?? null;
-        document.getElementById('modal-insights-text').textContent = insights ?? '';
-        showRow('modal-row-insights', insights, 'block');
-
-        const phone = (lead.telefone ?? '').toString().replace(/\D/g, '');
-        const waBtn = document.getElementById('modal-whatsapp-btn');
-        if (phone) {
-            waBtn.href = `https://wa.me/${phone}`;
-            waBtn.classList.remove('hidden');
-        } else {
-            waBtn.classList.add('hidden');
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap',
+            }).addTo(map);
         }
 
-        modal.classList.remove('hidden');
-        modal.style.display = 'flex';
-    }
+        markersLayer = L.layerGroup().addTo(map);
 
-    function closeModal() {
-        modal.classList.add('hidden');
-        modal.style.display = '';
-    }
-
-    closeBtn.addEventListener('click', closeModal);
-    backdrop.addEventListener('click', closeModal);
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-
-    // Lead markers
-    leads.forEach(lead => {
-        if (!lead.latitude) return;
-        const score = lead.lead_score ?? 0;
-        const color = score >= 80 ? '#ef4444' : score >= 50 ? '#f59e0b' : '#6b7280';
-        const leadIcon = L.divIcon({
+        const storeIcon = L.divIcon({
             className: '',
-            html: `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="28" viewBox="0 0 28 36" style="cursor:pointer">
-                <path d="M14 0C6.27 0 0 6.27 0 14c0 9.625 14 22 14 22s14-12.375 14-22C28 6.27 21.73 0 14 0z" fill="${color}" stroke="#fff" stroke-width="1.5"/>
-                <circle cx="14" cy="14" r="5" fill="#fff" fill-opacity="0.9"/>
+            html: `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
+                <path d="M14 0C6.27 0 0 6.27 0 14c0 9.625 14 22 14 22s14-12.375 14-22C28 6.27 21.73 0 14 0z" fill="#10b981" stroke="#fff" stroke-width="1.5"/>
+                <circle cx="14" cy="14" r="6" fill="#fff"/>
             </svg>`,
-            iconSize: [22, 28],
-            iconAnchor: [11, 28],
+            iconSize: [28, 36],
+            iconAnchor: [14, 36],
+            popupAnchor: [0, -36],
         });
-        L.marker([lead.latitude, lead.longitude], { icon: leadIcon })
-            .on('click', () => openModal(lead))
+
+        L.marker([loja.latitude, loja.longitude], { icon: storeIcon })
+            .bindPopup(`<b>${loja.nome}</b><br>Sua empresa`)
             .addTo(map);
+
+        L.circle([loja.latitude, loja.longitude], {
+            radius: (loja.raio_atendimento || 5) * 1000,
+            color: '#10b981', fillColor: '#10b981', fillOpacity: 0.06, weight: 1,
+        }).addTo(map);
+
+        renderLeads();
+        map.invalidateSize();
+    }
+
+    function renderLeads() {
+        if (!map || !markersLayer) return;
+
+        markersLayer.clearLayers();
+        const bounds = [];
+
+        leads.forEach(lead => {
+            const lat = parseFloat(lead.latitude);
+            const lng = parseFloat(lead.longitude);
+            if (!lat || !lng) return;
+
+            const score = lead.lead_score ?? 0;
+            const color = score >= 80 ? '#22c55e' : score >= 50 ? '#f59e0b' : '#6b7280';
+            const phone = (lead.telefone || '').toString();
+            const popup = [
+                `<b>${lead.nome}</b>`,
+                lead.endereco || '',
+                lead.distancia_km ? `${parseFloat(lead.distancia_km).toFixed(1)} km` : '',
+                phone,
+            ].filter(Boolean).join('<br>');
+
+            const leadIcon = L.divIcon({
+                className: '',
+                html: `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="28" viewBox="0 0 28 36">
+                    <path d="M14 0C6.27 0 0 6.27 0 14c0 9.625 14 22 14 22s14-12.375 14-22C28 6.27 21.73 0 14 0z" fill="${color}" stroke="#fff" stroke-width="1.5"/>
+                    <circle cx="14" cy="14" r="5" fill="#fff" fill-opacity="0.9"/>
+                </svg>`,
+                iconSize: [22, 28],
+                iconAnchor: [11, 28],
+                popupAnchor: [0, -28],
+            });
+
+            L.marker([lat, lng], { icon: leadIcon }).bindPopup(popup).addTo(markersLayer);
+
+            bounds.push([lat, lng]);
+        });
+
+        if (bounds.length > 0) {
+            try { map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 }); } catch (_) {}
+        }
+
+        map.invalidateSize();
+    }
+
+    document.addEventListener('livewire:initialized', () => {
+        setTimeout(initMap, 50);
     });
-});
+
+    if (document.readyState !== 'loading') {
+        setTimeout(initMap, 50);
+    }
+})();
 </script>
 @endpush

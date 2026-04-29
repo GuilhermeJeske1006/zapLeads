@@ -4,14 +4,10 @@
     <div class="space-y-6">
 
         {{-- AI Lead Finder + Prospecção --}}
-        @if ($loja)
-            <livewire:leads.lead-finder :loja="$loja" />
-            <livewire:leads.internet-prospector :loja="$loja" />
-        @endif
+        <livewire:leads.lead-finder :empresa="$empresa" />
+        <livewire:leads.internet-prospector :empresa="$empresa" />
 
         {{-- Table --}}
-        @if ($loja)
-            <livewire:leads.leads-table :loja="$loja" />
-        @endif
+        <livewire:leads.leads-table :empresa="$empresa" />
     </div>
 </x-app-layout>

@@ -4,79 +4,84 @@ namespace App\Services;
 
 use App\Models\Lead;
 use App\Models\MessageLog;
-use Illuminate\Support\Facades\Http;
+use App\Models\WhatsAppChannel;
 use Illuminate\Support\Facades\Log;
+use Twilio\Rest\Client;
 
 class WhatsAppService
 {
-    private string $baseUrl;
-    private string $clientToken;
+    private Client $client;
 
     public function __construct()
     {
-        $instanceId = config('zapi.instance_id');
-        $token = config('zapi.token');
-        $this->baseUrl = "https://api.z-api.io/instances/{$instanceId}/token/{$token}";
-        $this->clientToken = config('zapi.client_token');
+        $this->client = new Client(config('twilio.sid'), config('twilio.token'));
     }
 
-    public function sendTextMessage(string $phone, string $message): array
+    public function sendTextMessage(string $phone, string $message, ?int $empresaId = null, ?WhatsAppChannel $channel = null): array
     {
         $phone = $this->normalizePhone($phone);
 
-        $lead = Lead::where('telefone', $phone)->first();
+        $lead = $this->findLeadByPhone($phone);
         if ($lead?->isOptedOut()) {
             Log::info('Opted-out lead, skipping send', ['phone' => $phone]);
             return ['success' => false, 'error' => 'opted_out'];
         }
 
         try {
-            $response = Http::timeout(15)->withHeaders([
-                'Client-Token' => $this->clientToken,
-                'Content-Type' => 'application/json',
-            ])->post("{$this->baseUrl}/send-text", [
-                'phone' => $phone,
-                'message' => $message,
-            ]);
+            $result = $this->client->messages->create(
+                "whatsapp:{$phone}",
+                ['from' => $this->resolveFrom($channel), 'body' => $message]
+            );
 
-            $result = $response->json();
-            $this->log($phone, $message, 'text', 'outbound', $response->successful() ? 'success' : 'failed', $result);
+            $this->log(
+                $empresaId ?: $lead?->empresa_id,
+                $phone, $message, 'text', 'outbound', 'success',
+                ['sid' => $result->sid, 'status' => $result->status]
+            );
 
-            return ['success' => $response->successful(), 'data' => $result];
+            return ['success' => true, 'data' => ['sid' => $result->sid, 'status' => $result->status]];
         } catch (\Throwable $e) {
             Log::error('WhatsApp sendTextMessage failed', ['phone' => $phone, 'error' => $e->getMessage()]);
+            $this->log($empresaId ?: $lead?->empresa_id, $phone, $message, 'text', 'outbound', 'failed', ['error' => $e->getMessage()]);
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
 
-    public function sendImageMessage(string $phone, string $imageUrl, string $caption = ''): array
+    public function sendImageMessage(string $phone, string $imageUrl, string $caption = '', ?int $empresaId = null, ?WhatsAppChannel $channel = null): array
     {
         $phone = $this->normalizePhone($phone);
+        $lead = $this->findLeadByPhone($phone);
 
         try {
-            $response = Http::timeout(15)->withHeaders([
-                'Client-Token' => $this->clientToken,
-                'Content-Type' => 'application/json',
-            ])->post("{$this->baseUrl}/send-image", [
-                'phone' => $phone,
-                'image' => $imageUrl,
-                'caption' => $caption,
-            ]);
+            $params = ['from' => $this->resolveFrom($channel), 'mediaUrl' => [$imageUrl]];
+            if ($caption !== '') {
+                $params['body'] = $caption;
+            }
 
-            $result = $response->json();
-            $this->log($phone, $caption, 'image', 'outbound', $response->successful() ? 'success' : 'failed', $result);
+            $result = $this->client->messages->create("whatsapp:{$phone}", $params);
 
-            return ['success' => $response->successful(), 'data' => $result];
+            $this->log(
+                $empresaId ?: $lead?->empresa_id,
+                $phone, $caption, 'image', 'outbound', 'success',
+                ['sid' => $result->sid, 'status' => $result->status]
+            );
+
+            return ['success' => true, 'data' => ['sid' => $result->sid, 'status' => $result->status]];
         } catch (\Throwable $e) {
             Log::error('WhatsApp sendImageMessage failed', ['phone' => $phone, 'error' => $e->getMessage()]);
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
 
-    public function sendTemplateMessage(string $phone, string $template, array $params = []): array
+    public function sendTemplateMessage(string $phone, string $template, array $params = [], ?int $empresaId = null, ?WhatsAppChannel $channel = null): array
     {
         $message = $this->resolveTemplate($template, $params);
-        return $this->sendTextMessage($phone, $message);
+        return $this->sendTextMessage($phone, $message, $empresaId, $channel);
+    }
+
+    private function resolveFrom(?WhatsAppChannel $channel): string
+    {
+        return $channel?->numero ?? config('twilio.from');
     }
 
     private function resolveTemplate(string $template, array $params): string
@@ -93,19 +98,36 @@ class WhatsAppService
         if (!str_starts_with($phone, '55') && strlen($phone) <= 11) {
             $phone = '55' . $phone;
         }
-        return $phone;
+        return '+' . $phone;
     }
 
-    private function log(string $phone, string $message, string $tipo, string $direcao, string $status, ?array $response = null): void
+    private function findLeadByPhone(string $normalizedPhone): ?Lead
     {
+        $digits = preg_replace('/\D/', '', $normalizedPhone);
+        $withoutCountry = str_starts_with($digits, '55') ? substr($digits, 2) : $digits;
+
+        return Lead::query()
+            ->where('telefone', $digits)
+            ->orWhere('telefone', $withoutCountry)
+            ->orWhere('telefone', '+' . $digits)
+            ->first();
+    }
+
+    private function log(?int $empresaId, string $phone, string $message, string $tipo, string $direcao, string $status, ?array $response = null): void
+    {
+        if (!$empresaId) {
+            Log::warning('Skipping MessageLog insert: missing empresa_id', ['phone' => $phone]);
+            return;
+        }
+
         MessageLog::create([
-            'loja_id' => null,
-            'telefone' => $phone,
-            'mensagem' => $message,
-            'tipo' => $tipo,
-            'direcao' => $direcao,
-            'status' => $status,
-            'zapi_response' => $response,
+            'empresa_id'        => $empresaId,
+            'telefone'          => $phone,
+            'mensagem'          => $message,
+            'tipo'              => $tipo,
+            'direcao'           => $direcao,
+            'status'            => $status,
+            'provider_response' => $response,
         ]);
     }
 }

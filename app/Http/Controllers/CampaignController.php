@@ -8,7 +8,7 @@ class CampaignController extends Controller
 {
     public function index(): View
     {
-        $loja = auth()->user()->lojas()->first();
-        return view('campaigns.index', compact('loja'));
+        $empresa = auth()->user()->empresa()->firstOrCreate([]);
+        return view('campaigns.index', compact('empresa'));
     }
 }

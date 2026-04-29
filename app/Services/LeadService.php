@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Jobs\FollowUpWhatsAppJob;
 use App\Jobs\ProcessSequenceStepJob;
 use App\Models\Lead;
-use App\Models\Loja;
+use App\Models\Empresa;
 use App\Models\Sequence;
 use App\Models\SequenceEnrollment;
 
@@ -15,9 +15,9 @@ class LeadService
         private GeoService $geoService,
     ) {}
 
-    private function enrollInSequences(Loja $loja, Lead $lead): void
+    private function enrollInSequences(Empresa $empresa, Lead $lead): void
     {
-        $sequences = Sequence::where('loja_id', $loja->id)
+        $sequences = Sequence::where('empresa_id', $empresa->id)
             ->where('status', 'active')
             ->where('trigger', 'lead_capture')
             ->with(['steps' => fn ($q) => $q->orderBy('ordem')])
@@ -43,7 +43,7 @@ class LeadService
         }
     }
 
-    public function capturar(Loja $loja, array $data): Lead
+    public function capturar(Empresa $empresa, array $data): Lead
     {
         $distancia = null;
         $isNearby = false;
@@ -51,16 +51,16 @@ class LeadService
 
         if (isset($data['latitude'], $data['longitude'])) {
             $distancia = $this->geoService->calcularDistancia(
-                $loja,
+                $empresa,
                 (float) $data['latitude'],
                 (float) $data['longitude']
             );
-            $isNearby = $this->geoService->isNearby($loja, (float) $data['latitude'], (float) $data['longitude']);
-            $score = $this->geoService->calcularLeadScore($distancia, $loja->raio_atendimento);
+            $isNearby = $this->geoService->isNearby($empresa, (float) $data['latitude'], (float) $data['longitude']);
+            $score = $this->geoService->calcularLeadScore($distancia, $empresa->raio_atendimento);
         }
 
         $lead = Lead::updateOrCreate(
-            ['loja_id' => $loja->id, 'telefone' => $data['telefone']],
+            ['empresa_id' => $empresa->id, 'telefone' => $data['telefone']],
             [
                 'nome' => $data['nome'],
                 'latitude' => $data['latitude'] ?? null,
@@ -74,7 +74,7 @@ class LeadService
 
         FollowUpWhatsAppJob::dispatch($lead)->delay(now()->addHours(24));
 
-        $this->enrollInSequences($loja, $lead);
+        $this->enrollInSequences($empresa, $lead);
 
         return $lead;
     }

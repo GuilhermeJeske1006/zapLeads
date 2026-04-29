@@ -2,13 +2,13 @@
 
 namespace App\Livewire\Leads;
 
-use App\Models\Loja;
+use App\Models\Empresa;
 use App\Services\AIService;
 use Livewire\Component;
 
 class LeadFinder extends Component
 {
-    public Loja $loja;
+    public Empresa $empresa;
 
     public string $descricaoEmpresa = '';
     public string $tipoCliente = '';
@@ -18,8 +18,8 @@ class LeadFinder extends Component
 
     public function mount(): void
     {
-        $this->descricaoEmpresa = $this->loja->descricao_empresa ?? '';
-        $this->tipoCliente      = $this->loja->tipo_cliente_alvo ?? '';
+        $this->descricaoEmpresa = $this->empresa->descricao_empresa ?? '';
+        $this->tipoCliente      = $this->empresa->tipo_cliente_alvo ?? '';
     }
 
     public function buscar(AIService $ai): void
@@ -34,7 +34,7 @@ class LeadFinder extends Component
             'tipoCliente.min'           => 'Descreva com ao menos 5 caracteres.',
         ]);
 
-        $this->loja->update([
+        $this->empresa->update([
             'descricao_empresa'  => $this->descricaoEmpresa,
             'tipo_cliente_alvo'  => $this->tipoCliente,
         ]);
@@ -44,7 +44,7 @@ class LeadFinder extends Component
         $this->resultados = [];
 
         try {
-            $leads = $this->loja->leads()->get()->toArray();
+            $leads = $this->empresa->leads()->get()->toArray();
             $this->resultados = $ai->buscarLeadsPorPerfil(
                 $this->descricaoEmpresa,
                 $this->tipoCliente,

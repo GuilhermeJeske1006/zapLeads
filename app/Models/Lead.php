@@ -12,7 +12,7 @@ class Lead extends Model
     use HasFactory;
 
     protected $fillable = [
-        'loja_id',
+        'empresa_id',
         'prospecting_search_id',
         'nome',
         'telefone',
@@ -46,9 +46,9 @@ class Lead extends Model
         return $this->opted_out_at !== null;
     }
 
-    public function loja(): BelongsTo
+    public function empresa(): BelongsTo
     {
-        return $this->belongsTo(Loja::class);
+        return $this->belongsTo(Empresa::class);
     }
 
     public function prospectingSearch(): BelongsTo

@@ -57,7 +57,13 @@
                 </div>
                 <div>
                     <h3 class="text-sm font-semibold text-white">{{ $activeConversation->display_name }}</h3>
-                    <p class="text-xs text-gray-400">{{ $activeConversation->telefone }}</p>
+                    <p class="text-xs text-gray-400">
+                        {{ $activeConversation->telefone }}
+                        @if($activeConversation->whatsappChannel)
+                            <span class="ml-2 text-gray-600">·</span>
+                            <span class="ml-1 text-green-500">{{ $activeConversation->whatsappChannel->nome }}</span>
+                        @endif
+                    </p>
                 </div>
             </div>
 
@@ -119,6 +125,20 @@
 
             {{-- Input --}}
             <div class="px-6 py-4 bg-gray-900 border-t border-gray-800">
+                {{-- Channel selector --}}
+                @if($channels->count() > 1)
+                    <div class="mb-2 flex items-center gap-2">
+                        <span class="text-xs text-gray-500">Enviar de:</span>
+                        <select wire:change="changeChannel($event.target.value)"
+                                class="text-xs bg-gray-800 border border-gray-700 text-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-green-500">
+                            @foreach($channels as $channel)
+                                <option value="{{ $channel->id }}" {{ $selectedChannelId === $channel->id ? 'selected' : '' }}>
+                                    {{ $channel->nome }} · {{ $channel->numero }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
                 <div class="flex items-end gap-3">
                     {{-- AI Button --}}
                     <button wire:click="suggestWithAI"

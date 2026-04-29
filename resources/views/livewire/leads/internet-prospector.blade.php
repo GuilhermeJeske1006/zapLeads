@@ -146,6 +146,13 @@
                         {{ count($resultados) }} encontrados
                     </span>
                 </div>
+
+                <button wire:click="verNaTabelaDeLeads"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium
+                               bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700
+                               rounded-lg transition-colors">
+                    Ver na tabela de leads
+                </button>
             </div>
 
             <table class="w-full text-sm table-fixed">
@@ -577,7 +584,7 @@
 
     function handleEvent(detail) {
         const leads = detail?.leads || [];
-        const loja  = detail?.loja  || null;
+        const loja  = detail?.loja || detail?.empresa || null;
         // nextTick: garante que o div #internet-map já foi inserido no DOM pelo Livewire
         requestAnimationFrame(() => {
             setTimeout(() => renderLeads(leads, loja), 50);
@@ -587,6 +594,10 @@
     function registerListeners() {
         // Browser event
         window.addEventListener('internet-leads-updated', (e) => handleEvent(e.detail));
+        window.addEventListener('scroll-to-leads-table', () => {
+            const el = document.getElementById('leads-table');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
 
         // Livewire event bus
         if (window.Livewire && !window.__internetProspectorHooked) {
@@ -601,11 +612,11 @@
     registerListeners();
     document.addEventListener('livewire:initialized', registerListeners);
 
-    // Render inicial (loja + eventuais resultados já carregados no server)
+    // Render inicial (empresa + eventuais resultados já carregados no server)
     try {
         const initialLeads = @json($resultados);
-        const initialLoja = @json($loja);
-        setTimeout(() => handleEvent({ leads: initialLeads || [], loja: initialLoja || null }), 50);
+        const initialLoja = @json($empresa);
+        setTimeout(() => handleEvent({ leads: initialLeads || [], empresa: initialLoja || null }), 50);
     } catch (_) {}
 })();
 </script>

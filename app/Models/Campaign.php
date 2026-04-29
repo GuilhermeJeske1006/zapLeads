@@ -12,7 +12,7 @@ class Campaign extends Model
     use HasFactory;
 
     protected $fillable = [
-        'loja_id', 'nome', 'mensagem', 'imagem', 'status',
+        'empresa_id', 'nome', 'mensagem', 'imagem', 'status',
         'filtros', 'total_enviados', 'total_erros',
         'scheduled_at', 'started_at', 'completed_at',
     ];
@@ -24,9 +24,9 @@ class Campaign extends Model
         'completed_at' => 'datetime',
     ];
 
-    public function loja(): BelongsTo
+    public function empresa(): BelongsTo
     {
-        return $this->belongsTo(Loja::class);
+        return $this->belongsTo(Empresa::class);
     }
 
     public function leads(): BelongsToMany

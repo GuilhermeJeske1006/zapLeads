@@ -3,7 +3,7 @@
 namespace App\Services\Prospecting;
 
 use App\Models\Lead;
-use App\Models\Loja;
+use App\Models\Empresa;
 use App\Models\ProspectingSearch;
 use App\Services\AIService;
 use App\Services\Geo\Distance;
@@ -38,15 +38,15 @@ class ProspectingService
         }
     }
 
-    public function run(Loja $loja, string $descricaoEmpresa, string $tipoCliente, float $radiusKm, int $maxResults = 60): ProspectingSearch
+    public function run(Empresa $empresa, string $descricaoEmpresa, string $tipoCliente, float $radiusKm, int $maxResults = 60): ProspectingSearch
     {
         if (!$this->placesEnabled) {
             return ProspectingSearch::create([
-                'loja_id' => $loja->id,
+                'empresa_id' => $empresa->id,
                 'descricao_empresa' => $descricaoEmpresa,
                 'tipo_cliente' => $tipoCliente,
-                'latitude' => (float) ($loja->latitude ?? 0),
-                'longitude' => (float) ($loja->longitude ?? 0),
+                'latitude' => (float) ($empresa->latitude ?? 0),
+                'longitude' => (float) ($empresa->longitude ?? 0),
                 'radius_km' => $radiusKm,
                 'keywords' => [],
                 'status' => 'failed',
@@ -54,10 +54,10 @@ class ProspectingService
             ]);
         }
 
-        $coords = $this->ensureStoreCoords($loja);
+        $coords = $this->ensureStoreCoords($empresa);
         if (!$coords) {
             return ProspectingSearch::create([
-                'loja_id' => $loja->id,
+                'empresa_id' => $empresa->id,
                 'descricao_empresa' => $descricaoEmpresa,
                 'tipo_cliente' => $tipoCliente,
                 'latitude' => 0,
@@ -75,7 +75,7 @@ class ProspectingService
         }
 
         $search = ProspectingSearch::create([
-            'loja_id' => $loja->id,
+            'empresa_id' => $empresa->id,
             'descricao_empresa' => $descricaoEmpresa,
             'tipo_cliente' => $tipoCliente,
             'latitude' => $coords['lat'],
@@ -109,12 +109,12 @@ class ProspectingService
                 }
             }
 
-            Log::debug('ProspectingService collected places', ['count' => count($collected), 'loja_id' => $loja->id]);
+            Log::debug('ProspectingService collected places', ['count' => count($collected), 'empresa_id' => $empresa->id]);
 
             $leads = [];
             foreach (array_values($collected) as $p) {
                 try {
-                    $lead = $this->upsertLeadFromPlace($loja, $search, $p, $radiusKm);
+                    $lead = $this->upsertLeadFromPlace($empresa, $search, $p, $radiusKm);
                     if ($lead) {
                         $leads[] = $lead;
                     }
@@ -126,7 +126,7 @@ class ProspectingService
                 }
             }
 
-            Log::debug('ProspectingService leads upserted', ['count' => count($leads), 'loja_id' => $loja->id]);
+            Log::debug('ProspectingService leads upserted', ['count' => count($leads), 'empresa_id' => $empresa->id]);
 
             // AI ranking — optional, non-blocking. Falls back to raw results if AI fails.
             $ranked = $this->ai->buscarLeadsPorPerfil(
@@ -156,7 +156,7 @@ class ProspectingService
 
             return $search->fresh(['leads']);
         } catch (\Throwable $e) {
-            Log::error('ProspectingService run failed', ['loja_id' => $loja->id, 'error' => $e->getMessage()]);
+            Log::error('ProspectingService run failed', ['empresa_id' => $empresa->id, 'error' => $e->getMessage()]);
             $search->update([
                 'status' => 'failed',
                 'error' => $e->getMessage(),
@@ -165,7 +165,7 @@ class ProspectingService
         }
     }
 
-    private function upsertLeadFromPlace(Loja $loja, ProspectingSearch $search, array $place, float $radiusKm): ?Lead
+    private function upsertLeadFromPlace(Empresa $empresa, ProspectingSearch $search, array $place, float $radiusKm): ?Lead
     {
         $lat = (float) ($place['lat'] ?? 0);
         $lng = (float) ($place['lng'] ?? 0);
@@ -173,12 +173,12 @@ class ProspectingService
             return null;
         }
 
-        $distKm = Distance::haversineKm((float) $loja->latitude, (float) $loja->longitude, $lat, $lng);
+        $distKm = Distance::haversineKm((float) $empresa->latitude, (float) $empresa->longitude, $lat, $lng);
         $isNearby = $distKm <= $radiusKm;
 
         $externalId = (string) ($place['external_id'] ?? '');
         $lead = Lead::query()
-            ->where('loja_id', $loja->id)
+            ->where('empresa_id', $empresa->id)
             ->where('external_source', 'mapbox')
             ->where('external_id', $externalId)
             ->first();
@@ -192,7 +192,7 @@ class ProspectingService
             'external_id' => $externalId,
             'latitude' => $lat,
             'longitude' => $lng,
-            'cidade' => $loja->cidade,
+            'cidade' => $empresa->cidade,
             'endereco' => $place['address'] ?? null,
             'website' => $place['website'] ?? null,
             'distancia_km' => round($distKm, 2),
@@ -210,26 +210,26 @@ class ProspectingService
             return $lead->fresh();
         }
 
-        $payload['loja_id'] = $loja->id;
+        $payload['empresa_id'] = $empresa->id;
         return Lead::create($payload);
     }
 
-    private function ensureStoreCoords(Loja $loja): ?array
+    private function ensureStoreCoords(Empresa $empresa): ?array
     {
-        if ($loja->latitude && $loja->longitude) {
-            return ['lat' => (float) $loja->latitude, 'lng' => (float) $loja->longitude];
+        if ($empresa->latitude && $empresa->longitude) {
+            return ['lat' => (float) $empresa->latitude, 'lng' => (float) $empresa->longitude];
         }
 
-        $query = trim(($loja->endereco ?? '') . ' ' . ($loja->cidade ?? ''));
+        $query = trim(($empresa->endereco ?? '') . ' ' . ($empresa->cidade ?? ''));
         $hit = $this->geo->geocode($query);
         if (!$hit) {
             return null;
         }
 
-        $loja->update([
+        $empresa->update([
             'latitude' => $hit['lat'],
             'longitude' => $hit['lng'],
-            'cidade' => $loja->cidade ?: ($hit['city'] ?? null),
+            'cidade' => $empresa->cidade ?: ($hit['city'] ?? null),
         ]);
 
         return ['lat' => (float) $hit['lat'], 'lng' => (float) $hit['lng']];
