@@ -49,6 +49,10 @@ class ProcessCampaignJob implements ShouldQueue
                     ->where('lead_id', $lead->id)
                     ->update(['status' => $status, 'sent_at' => now()]);
 
+                if ($result['success'] && ($lead->status ?? 'novo') === 'novo') {
+                    $lead->update(['status' => 'contatado']);
+                }
+
                 if ($result['success']) {
                     $this->campaign->increment('total_enviados');
                 } else {

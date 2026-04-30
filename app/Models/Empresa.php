@@ -29,6 +29,7 @@ class Empresa extends Model
         'bot_ativo',
         'bot_horario_inicio',
         'bot_horario_fim',
+        'ai_persona',
     ];
 
     public function user(): BelongsTo

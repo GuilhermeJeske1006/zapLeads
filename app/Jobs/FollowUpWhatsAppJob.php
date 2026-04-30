@@ -30,6 +30,10 @@ class FollowUpWhatsAppJob implements ShouldQueue
             'loja' => $empresa?->nome,
         ]);
 
-        $whatsApp->sendTextMessage($this->lead->telefone, $message, $this->lead->empresa_id, $channel);
+        $result = $whatsApp->sendTextMessage($this->lead->telefone, $message, $this->lead->empresa_id, $channel);
+
+        if (($result['success'] ?? false) && ($this->lead->status ?? 'novo') === 'novo') {
+            $this->lead->update(['status' => 'contatado']);
+        }
     }
 }

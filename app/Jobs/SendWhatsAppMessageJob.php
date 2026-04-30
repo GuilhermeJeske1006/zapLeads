@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\Lead;
 use App\Models\Message;
 use App\Services\WhatsAppService;
 use Illuminate\Bus\Queueable;
@@ -40,6 +41,25 @@ class SendWhatsAppMessageJob implements ShouldQueue
             'status'             => $status,
             'twilio_message_sid' => $result['data']['sid'] ?? null,
         ]);
+
+        if ($result['success']) {
+            $lead = $conversation->lead_id
+                ? $conversation->lead
+                : Lead::query()
+                    ->where('empresa_id', $empresaId)
+                    ->where(function ($q) use ($phone) {
+                        $digits = preg_replace('/\D/', '', (string) $phone);
+                        $withoutCountry = str_starts_with($digits, '55') ? substr($digits, 2) : $digits;
+                        $q->where('telefone', $digits)
+                            ->orWhere('telefone', $withoutCountry)
+                            ->orWhere('telefone', '+' . $digits);
+                    })
+                    ->first();
+
+            if ($lead && ($lead->status ?? 'novo') === 'novo') {
+                $lead->update(['status' => 'contatado']);
+            }
+        }
 
         if (!$result['success']) {
             Log::warning('WhatsApp message failed', ['message_id' => $this->message->id]);

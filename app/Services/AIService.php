@@ -57,12 +57,17 @@ class AIService
         }
         $prompt .= "Gere uma resposta profissional e amigável para o cliente, em português do Brasil. Máximo 200 caracteres.";
 
+        $empresa = $conversation->empresa;
+        $systemPrompt = ($empresa?->ai_persona && trim($empresa->ai_persona) !== '')
+            ? trim($empresa->ai_persona)
+            : 'Você é um atendente de loja virtual. Seja prestativo, cordial e objetivo.';
+
         try {
             $response = $this->client->messages->create(
                 model: $this->model,
                 maxTokens: 300,
                 messages: [['role' => 'user', 'content' => $prompt]],
-                system: 'Você é um atendente de loja virtual. Seja prestativo, cordial e objetivo.',
+                system: $systemPrompt,
             );
 
             $text = trim($response->content[0]->text);

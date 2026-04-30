@@ -55,6 +55,10 @@ class AutoRespondJob implements ShouldQueue
             $channel
         );
 
+        if (($result['success'] ?? false) && $this->conversation->lead && (($this->conversation->lead->status ?? 'novo') === 'novo')) {
+            $this->conversation->lead->update(['status' => 'contatado']);
+        }
+
         $message->update([
             'status'             => $result['success'] ? 'sent' : 'failed',
             'twilio_message_sid' => $result['data']['sid'] ?? null,

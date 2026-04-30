@@ -12,8 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->trustProxies(at: '*');
         $middleware->alias([
             'set.locale' => \App\Http\Middleware\SetLocale::class,
+            'onboarding' => \App\Http\Middleware\EnsureOnboardingComplete::class,
         ]);
         $middleware->web(append: [
             \App\Http\Middleware\SetLocale::class,

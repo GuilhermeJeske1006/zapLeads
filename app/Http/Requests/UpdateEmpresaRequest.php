@@ -23,6 +23,7 @@ class UpdateEmpresaRequest extends FormRequest
             'raio_atendimento' => 'nullable|integer|min:1|max:500',
             'slug' => 'nullable|string|max:100|unique:empresas,slug',
             'logo' => 'nullable|image|mimes:jpeg,png,webp|max:2048',
+            'ai_persona' => 'nullable|string|max:2000',
         ];
     }
 }

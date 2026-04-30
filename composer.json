@@ -9,6 +9,7 @@
         "php": "^8.2",
         "anthropic-ai/sdk": "^0.17.0",
         "intervention/image": "^3.11",
+        "laravel/cashier": "^16.5",
         "laravel/framework": "^12.0",
         "laravel/reverb": "^1.10",
         "laravel/tinker": "^2.10.1",

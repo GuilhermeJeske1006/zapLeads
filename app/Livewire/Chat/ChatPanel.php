@@ -3,14 +3,16 @@
 namespace App\Livewire\Chat;
 
 use App\Events\MessageSent;
-use App\Jobs\SendWhatsAppMessageJob;
 use App\Models\Conversation;
 use App\Models\Empresa;
+use App\Models\Lead;
 use App\Models\Message;
 use App\Models\WhatsAppChannel;
 use App\Repositories\ConversationRepository;
 use App\Services\AIService;
+use App\Services\WhatsAppService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 
 class ChatPanel extends Component
@@ -25,12 +27,14 @@ class ChatPanel extends Component
 
     protected ConversationRepository $conversationRepo;
     protected AIService $aiService;
+    protected WhatsAppService $whatsApp;
     protected Empresa $empresa;
 
-    public function boot(ConversationRepository $conversationRepo, AIService $aiService): void
+    public function boot(ConversationRepository $conversationRepo, AIService $aiService, WhatsAppService $whatsApp): void
     {
         $this->conversationRepo = $conversationRepo;
         $this->aiService = $aiService;
+        $this->whatsApp = $whatsApp;
         $this->empresa = auth()->user()->empresa()->firstOrCreate([]);
     }
 
@@ -100,7 +104,42 @@ class ChatPanel extends Component
         $this->newMessage = '';
         $this->aiSuggestion = '';
 
-        SendWhatsAppMessageJob::dispatch($message);
+        $phone     = $this->activeConversation->telefone;
+        $empresaId = $this->activeConversation->empresa_id;
+        $channel   = $this->activeConversation->whatsappChannel;
+
+        $result = match ($message->type) {
+            'image' => $this->whatsApp->sendImageMessage($phone, $message->media_url, $message->message, $empresaId, $channel),
+            default => $this->whatsApp->sendTextMessage($phone, $message->message, $empresaId, $channel),
+        };
+
+        $status = $result['success'] ? 'sent' : 'failed';
+        $message->update([
+            'status'             => $status,
+            'twilio_message_sid' => $result['data']['sid'] ?? null,
+        ]);
+
+        if ($result['success']) {
+            $lead = $this->activeConversation->lead_id
+                ? $this->activeConversation->lead
+                : Lead::query()
+                    ->where('empresa_id', $empresaId)
+                    ->where(function ($q) use ($phone) {
+                        $digits = preg_replace('/\D/', '', (string) $phone);
+                        $withoutCountry = str_starts_with($digits, '55') ? substr($digits, 2) : $digits;
+                        $q->where('telefone', $digits)
+                            ->orWhere('telefone', $withoutCountry)
+                            ->orWhere('telefone', '+' . $digits);
+                    })
+                    ->first();
+
+            if ($lead && ($lead->status ?? 'novo') === 'novo') {
+                $lead->update(['status' => 'contatado']);
+            }
+        } else {
+            Log::warning('WhatsApp message failed', ['message_id' => $message->id]);
+        }
+
         broadcast(new MessageSent($message));
 
         $this->dispatch('message-sent');
@@ -128,8 +167,12 @@ class ChatPanel extends Component
     {
         if ($this->activeConversationId === $data['conversation']['id']) {
             $this->activeConversation?->refresh();
+            $this->conversationRepo->markAsRead($this->activeConversation);
         }
-        $this->dispatch('new-message-notification', conversation: $data['conversation']);
+        $this->dispatch('new-message-notification',
+            conversation: $data['conversation'],
+            activeConversationId: $this->activeConversationId,
+        );
     }
 
     public function onMessageStatusUpdated(array $data): void

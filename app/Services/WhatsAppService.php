@@ -20,6 +20,7 @@ class WhatsAppService
     public function sendTextMessage(string $phone, string $message, ?int $empresaId = null, ?WhatsAppChannel $channel = null): array
     {
         $phone = $this->normalizePhone($phone);
+        $from = $this->resolveFrom($channel);
 
         $lead = $this->findLeadByPhone($phone);
         if ($lead?->isOptedOut()) {
@@ -28,9 +29,16 @@ class WhatsAppService
         }
 
         try {
+            Log::debug('Twilio sendTextMessage', [
+                'to' => "whatsapp:{$phone}",
+                'from' => $from,
+                'empresa_id' => $empresaId,
+                'whatsapp_channel_id' => $channel?->id,
+            ]);
+
             $result = $this->client->messages->create(
                 "whatsapp:{$phone}",
-                ['from' => $this->resolveFrom($channel), 'body' => $message]
+                ['from' => $from, 'body' => $message]
             );
 
             $this->log(
@@ -50,10 +58,19 @@ class WhatsAppService
     public function sendImageMessage(string $phone, string $imageUrl, string $caption = '', ?int $empresaId = null, ?WhatsAppChannel $channel = null): array
     {
         $phone = $this->normalizePhone($phone);
+        $from = $this->resolveFrom($channel);
         $lead = $this->findLeadByPhone($phone);
 
         try {
-            $params = ['from' => $this->resolveFrom($channel), 'mediaUrl' => [$imageUrl]];
+            Log::debug('Twilio sendImageMessage', [
+                'to' => "whatsapp:{$phone}",
+                'from' => $from,
+                'empresa_id' => $empresaId,
+                'whatsapp_channel_id' => $channel?->id,
+                'has_caption' => $caption !== '',
+            ]);
+
+            $params = ['from' => $from, 'mediaUrl' => [$imageUrl]];
             if ($caption !== '') {
                 $params['body'] = $caption;
             }
@@ -81,7 +98,24 @@ class WhatsAppService
 
     private function resolveFrom(?WhatsAppChannel $channel): string
     {
-        return $channel?->numero ?? config('twilio.from');
+        $from = (string) ($channel?->numero ?: config('twilio.from'));
+        $from = trim($from);
+
+        if ($from === '') {
+            $from = (string) config('twilio.from');
+        }
+
+        // Twilio WhatsApp requires "whatsapp:+E164" format.
+        if (!str_starts_with($from, 'whatsapp:')) {
+            $from = 'whatsapp:' . $from;
+        }
+
+        $afterPrefix = substr($from, strlen('whatsapp:'));
+        if ($afterPrefix !== '' && !str_starts_with($afterPrefix, '+')) {
+            $from = 'whatsapp:+' . ltrim($afterPrefix, '+');
+        }
+
+        return $from;
     }
 
     private function resolveTemplate(string $template, array $params): string

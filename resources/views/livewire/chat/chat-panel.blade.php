@@ -1,7 +1,39 @@
 <div class="flex h-full bg-gray-950 rounded-2xl border border-gray-800 overflow-hidden" style="height: calc(100vh - 8rem)">
 
+    {{-- Toast notification overlay --}}
+    <div
+        x-data="chatNotifications()"
+        x-init="init()"
+        @new-message-notification.window="handleNotification($event.detail)"
+        class="fixed top-4 right-4 z-50 space-y-2 pointer-events-none"
+        style="max-width: 340px; width: 340px;"
+    >
+        <template x-for="toast in toasts" :key="toast.id">
+            <div
+                x-show="toast.visible"
+                x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 translate-x-8"
+                x-transition:enter-end="opacity-100 translate-x-0"
+                x-transition:leave="transition ease-in duration-200"
+                x-transition:leave-start="opacity-100 translate-x-0"
+                x-transition:leave-end="opacity-0 translate-x-8"
+                class="pointer-events-auto bg-gray-800 border border-gray-700 rounded-xl p-3 shadow-2xl flex items-start gap-3 cursor-pointer hover:bg-gray-750"
+                @click="toast.visible = false"
+            >
+                <div class="w-9 h-9 rounded-full bg-linear-to-br from-green-500 to-emerald-700 flex items-center justify-center text-sm font-bold shrink-0 text-white"
+                     x-text="toast.initials">
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold text-white truncate" x-text="toast.name"></p>
+                    <p class="text-xs text-gray-400 truncate mt-0.5" x-text="toast.message"></p>
+                </div>
+                <div class="shrink-0 w-2 h-2 bg-green-500 rounded-full mt-1.5"></div>
+            </div>
+        </template>
+    </div>
+
     {{-- Conversation List --}}
-    <div class="w-80 flex-shrink-0 flex flex-col border-r border-gray-800 bg-gray-900">
+    <div class="w-80 shrink-0 flex flex-col border-r border-gray-800 bg-gray-900">
         {{-- Search --}}
         <div class="p-4 border-b border-gray-800">
             <div class="relative">
@@ -21,21 +53,35 @@
                 <button wire:click="selectConversation({{ $conv->id }})"
                         class="w-full px-4 py-3 flex items-start gap-3 hover:bg-gray-800/50 transition-colors text-left
                                {{ $activeConversationId === $conv->id ? 'bg-gray-800' : '' }}">
-                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-700 flex items-center justify-center text-sm font-bold flex-shrink-0">
-                        {{ strtoupper(substr($conv->display_name, 0, 1)) }}
+                    <div class="relative shrink-0">
+                        <div class="w-10 h-10 rounded-full bg-linear-to-br from-green-500 to-emerald-700 flex items-center justify-center text-sm font-bold text-white">
+                            {{ strtoupper(substr($conv->display_name, 0, 1)) }}
+                        </div>
                     </div>
                     <div class="flex-1 min-w-0">
                         <div class="flex justify-between items-start">
-                            <span class="text-sm font-semibold text-white truncate">{{ $conv->display_name }}</span>
-                            <span class="text-xs text-gray-500 ml-2 flex-shrink-0">
-                                {{ $conv->last_message_at?->format('H:i') }}
+                            <span class="text-sm font-semibold {{ $conv->unread_count > 0 ? 'text-white' : 'text-gray-300' }} truncate">
+                                {{ $conv->display_name }}
+                            </span>
+                            <span class="text-xs {{ $conv->unread_count > 0 ? 'text-green-400 font-medium' : 'text-gray-500' }} ml-2 shrink-0">
+                                @if ($conv->last_message_at)
+                                    @if ($conv->last_message_at->isToday())
+                                        {{ $conv->last_message_at->format('H:i') }}
+                                    @elseif ($conv->last_message_at->isYesterday())
+                                        ontem
+                                    @else
+                                        {{ $conv->last_message_at->format('d/m') }}
+                                    @endif
+                                @endif
                             </span>
                         </div>
-                        <p class="text-xs text-gray-400 truncate mt-0.5">{{ $conv->last_message }}</p>
+                        <p class="text-xs {{ $conv->unread_count > 0 ? 'text-gray-200 font-medium' : 'text-gray-400' }} truncate mt-0.5">
+                            {{ $conv->last_message }}
+                        </p>
                     </div>
                     @if ($conv->unread_count > 0)
-                        <span class="flex-shrink-0 w-5 h-5 bg-green-500 rounded-full text-xs text-white flex items-center justify-center font-bold">
-                            {{ $conv->unread_count }}
+                        <span class="shrink-0 min-w-5 h-5 bg-green-500 rounded-full text-xs text-white flex items-center justify-center font-bold px-1">
+                            {{ $conv->unread_count > 99 ? '99+' : $conv->unread_count }}
                         </span>
                     @endif
                 </button>
@@ -48,57 +94,95 @@
     </div>
 
     {{-- Chat Area --}}
-    <div class="flex-1 flex flex-col">
+    <div class="flex-1 flex flex-col min-w-0">
         @if ($activeConversation)
             {{-- Chat Header --}}
             <div class="px-6 py-4 bg-gray-900 border-b border-gray-800 flex items-center gap-4">
-                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-700 flex items-center justify-center text-sm font-bold">
+                <div class="w-10 h-10 rounded-full bg-linear-to-br from-green-500 to-emerald-700 flex items-center justify-center text-sm font-bold text-white shrink-0">
                     {{ strtoupper(substr($activeConversation->display_name, 0, 1)) }}
                 </div>
-                <div>
+                <div class="flex-1 min-w-0">
                     <h3 class="text-sm font-semibold text-white">{{ $activeConversation->display_name }}</h3>
-                    <p class="text-xs text-gray-400">
+                    <p class="text-xs text-gray-400 truncate">
                         {{ $activeConversation->telefone }}
                         @if($activeConversation->whatsappChannel)
-                            <span class="ml-2 text-gray-600">·</span>
-                            <span class="ml-1 text-green-500">{{ $activeConversation->whatsappChannel->nome }}</span>
+                            <span class="mx-1 text-gray-600">·</span>
+                            <span class="text-green-500">{{ $activeConversation->whatsappChannel->nome }}</span>
                         @endif
                     </p>
                 </div>
             </div>
 
             {{-- Messages --}}
-            <div class="flex-1 overflow-y-auto p-6 space-y-3"
+            <div class="flex-1 overflow-y-auto p-4 space-y-1"
                  id="messages-container"
-                 x-data
-                 x-init="$el.scrollTop = $el.scrollHeight"
-                 x-on:message-sent.window="$nextTick(() => $el.scrollTop = $el.scrollHeight)"
-                 x-on:new-message-notification.window="$nextTick(() => $el.scrollTop = $el.scrollHeight)">
+                 x-data="{ scrollToBottom() { this.$el.scrollTop = this.$el.scrollHeight; } }"
+                 x-init="$nextTick(() => scrollToBottom())"
+                 x-on:message-sent.window="$nextTick(() => scrollToBottom())"
+                 x-on:new-message-notification.window="$nextTick(() => scrollToBottom())">
+
+                @php $lastDate = null; $lastSender = null; @endphp
+
                 @foreach ($messages as $msg)
-                    <div class="flex {{ $msg->isFromUser() ? 'justify-end' : 'justify-start' }}">
+                    @php
+                        $msgDate = $msg->created_at->format('Y-m-d');
+                        $isNewDate = $msgDate !== $lastDate;
+                        $isSameSender = $msg->sender === $lastSender && !$isNewDate;
+                        $lastDate = $msgDate;
+                        $lastSender = $msg->sender;
+                    @endphp
+
+                    {{-- Date separator --}}
+                    @if ($isNewDate)
+                        <div class="flex items-center gap-3 py-3">
+                            <div class="flex-1 border-t border-gray-800"></div>
+                            <span class="text-xs text-gray-500 bg-gray-950 px-2">
+                                @if ($msg->created_at->isToday())
+                                    Hoje
+                                @elseif ($msg->created_at->isYesterday())
+                                    Ontem
+                                @else
+                                    {{ $msg->created_at->format('d \d\e F \d\e Y') }}
+                                @endif
+                            </span>
+                            <div class="flex-1 border-t border-gray-800"></div>
+                        </div>
+                    @endif
+
+                    <div class="flex {{ $msg->isFromUser() ? 'justify-end' : 'justify-start' }} {{ $isSameSender ? 'mt-0.5' : 'mt-2' }}">
                         <div class="max-w-sm lg:max-w-md xl:max-w-lg">
-                            <div class="px-4 py-2.5 rounded-2xl text-sm
+                            <div class="px-4 py-2 rounded-2xl text-sm leading-relaxed
                                 {{ $msg->isFromUser()
-                                    ? 'bg-green-600 text-white rounded-br-sm'
-                                    : 'bg-gray-800 text-gray-100 rounded-bl-sm' }}">
+                                    ? 'bg-green-600 text-white ' . ($isSameSender ? 'rounded-br-md' : 'rounded-br-sm')
+                                    : 'bg-gray-800 text-gray-100 ' . ($isSameSender ? 'rounded-bl-md' : 'rounded-bl-sm') }}">
                                 @if ($msg->type === 'image' && $msg->media_url)
                                     <img src="{{ $msg->media_url }}" alt="" class="rounded-lg max-w-xs mb-1">
                                 @endif
-                                {{ $msg->message }}
+                                <span>{{ $msg->message }}</span>
                                 @if ($msg->ai_generated)
-                                    <span class="ml-1 text-xs opacity-60">✨ AI</span>
+                                    <span class="ml-1 text-xs opacity-60">✨</span>
                                 @endif
                             </div>
-                            <div class="flex {{ $msg->isFromUser() ? 'justify-end' : 'justify-start' }} mt-1 items-center gap-1">
-                                <span class="text-xs text-gray-500">{{ $msg->created_at->format('H:i') }}</span>
+                            <div class="flex {{ $msg->isFromUser() ? 'justify-end' : 'justify-start' }} mt-0.5 items-center gap-1 px-1">
+                                <span class="text-xs text-gray-600">{{ $msg->created_at->format('H:i') }}</span>
                                 @if ($msg->isFromUser())
-                                    <span class="text-xs text-gray-500">
-                                        @if ($msg->status === 'sent') ✓
-                                        @elseif ($msg->status === 'delivered') ✓✓
-                                        @elseif ($msg->status === 'read') <span class="text-blue-400">✓✓</span>
-                                        @elseif ($msg->status === 'failed') <span class="text-red-400">✗</span>
-                                        @endif
-                                    </span>
+                                    @if ($msg->status === 'sending')
+                                        <svg class="w-3.5 h-3.5 text-gray-600 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+                                        </svg>
+                                    @elseif ($msg->status === 'sent')
+                                        <svg class="w-3.5 h-3.5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                        </svg>
+                                    @elseif ($msg->status === 'delivered')
+                                        <span class="text-xs text-gray-500 leading-none">✓✓</span>
+                                    @elseif ($msg->status === 'read')
+                                        <span class="text-xs text-blue-400 leading-none font-medium">✓✓</span>
+                                    @elseif ($msg->status === 'failed')
+                                        <svg class="w-3.5 h-3.5 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                                        </svg>
+                                    @endif
                                 @endif
                             </div>
                         </div>
@@ -110,13 +194,13 @@
             @if ($aiSuggestion)
                 <div class="px-6 py-3 bg-gray-900/50 border-t border-gray-800">
                     <div class="flex items-start gap-3 bg-gray-800 rounded-xl p-3">
-                        <span class="text-lg flex-shrink-0">✨</span>
-                        <div class="flex-1">
+                        <span class="text-lg shrink-0">✨</span>
+                        <div class="flex-1 min-w-0">
                             <p class="text-xs text-green-400 font-medium mb-1">{{ __('messages.ai_suggestion') }}</p>
                             <p class="text-sm text-gray-200">{{ $aiSuggestion }}</p>
                         </div>
                         <button wire:click="useAISuggestion"
-                                class="flex-shrink-0 px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-500 transition-colors">
+                                class="shrink-0 px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-500 transition-colors">
                             {{ __('messages.use') }}
                         </button>
                     </div>
@@ -125,7 +209,6 @@
 
             {{-- Input --}}
             <div class="px-6 py-4 bg-gray-900 border-t border-gray-800">
-                {{-- Channel selector --}}
                 @if($channels->count() > 1)
                     <div class="mb-2 flex items-center gap-2">
                         <span class="text-xs text-gray-500">Enviar de:</span>
@@ -140,10 +223,9 @@
                     </div>
                 @endif
                 <div class="flex items-end gap-3">
-                    {{-- AI Button --}}
                     <button wire:click="suggestWithAI"
                             wire:loading.attr="disabled"
-                            class="flex-shrink-0 w-10 h-10 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center justify-center transition-colors"
+                            class="shrink-0 w-10 h-10 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center justify-center transition-colors"
                             title="{{ __('messages.ai_suggest_reply') }}">
                         <span wire:loading.remove wire:target="suggestWithAI" class="text-lg">✨</span>
                         <svg wire:loading wire:target="suggestWithAI" class="w-4 h-4 text-green-400 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -162,7 +244,7 @@
 
                     <button wire:click="sendMessage"
                             wire:loading.attr="disabled"
-                            class="flex-shrink-0 w-10 h-10 bg-green-600 hover:bg-green-500 rounded-xl flex items-center justify-center transition-colors">
+                            class="shrink-0 w-10 h-10 bg-green-600 hover:bg-green-500 rounded-xl flex items-center justify-center transition-colors">
                         <svg wire:loading.remove wire:target="sendMessage" class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                         </svg>
@@ -187,3 +269,89 @@
         @endif
     </div>
 </div>
+
+<script>
+function chatNotifications() {
+    return {
+        toasts: [],
+        originalTitle: document.title,
+        unreadCount: 0,
+
+        init() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+        },
+
+        handleNotification(data) {
+            const conv = data.conversation;
+            const activeId = data.activeConversationId;
+
+            // Don't notify for the currently open conversation
+            if (conv.id === activeId) return;
+
+            this.addToast(conv);
+            this.playSound();
+            this.updateTabTitle();
+
+            if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+                const notif = new Notification(conv.display_name, {
+                    body: conv.last_message,
+                    icon: '/favicon.ico',
+                    tag: 'chat-' + conv.id,
+                });
+                notif.onclick = () => { window.focus(); notif.close(); };
+            }
+        },
+
+        addToast(conv) {
+            const id = Date.now();
+            const name = conv.display_name || conv.telefone || 'Contato';
+            this.toasts.push({
+                id,
+                visible: true,
+                name,
+                message: conv.last_message || '',
+                initials: name.charAt(0).toUpperCase(),
+            });
+            setTimeout(() => {
+                const idx = this.toasts.findIndex(t => t.id === id);
+                if (idx >= 0) this.toasts[idx].visible = false;
+                setTimeout(() => {
+                    this.toasts = this.toasts.filter(t => t.id !== id);
+                }, 300);
+            }, 5000);
+        },
+
+        updateTabTitle() {
+            this.unreadCount++;
+            document.title = '(' + this.unreadCount + ') ' + this.originalTitle;
+
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) {
+                    this.unreadCount = 0;
+                    document.title = this.originalTitle;
+                }
+            }, { once: true });
+        },
+
+        playSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime);
+                osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.25);
+            } catch (e) {}
+        },
+    }
+}
+</script>

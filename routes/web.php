@@ -5,9 +5,12 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmpresaController;
 use App\Http\Controllers\LangController;
 use App\Http\Controllers\LeadController;
+use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicCatalogoController;
 use App\Http\Controllers\WebhookController;
+use App\Livewire\Onboarding\EmpresaStep;
+use App\Livewire\Onboarding\PlanoStep;
 use Illuminate\Support\Facades\Route;
 
 // Language switcher
@@ -22,8 +25,20 @@ Route::post('/webhook/twilio', [WebhookController::class, 'twilio'])
     ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class])
     ->name('webhook.twilio');
 
+Route::post('/webhook/stripe', '\Laravel\Cashier\Http\Controllers\WebhookController@handleWebhook')
+    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class])
+    ->name('webhook.stripe');
+
 // Breeze auth routes
 require __DIR__ . '/auth.php';
+
+// Onboarding (auth, sem middleware onboarding para evitar loop)
+Route::middleware(['auth', 'set.locale'])->prefix('onboarding')->name('onboarding.')->group(function () {
+    Route::get('/empresa', EmpresaStep::class)->name('empresa');
+    Route::get('/plano', PlanoStep::class)->name('plano');
+    Route::get('/pagamento', [OnboardingController::class, 'pagamento'])->name('pagamento');
+    Route::post('/pagamento', [OnboardingController::class, 'processarPagamento'])->name('pagamento.processar');
+});
 
 // Profile (Breeze)
 Route::middleware('auth')->group(function () {
@@ -32,8 +47,8 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Authenticated app routes
-Route::middleware(['auth', 'set.locale'])->group(function () {
+// Authenticated app routes (com middleware onboarding)
+Route::middleware(['auth', 'set.locale', 'onboarding'])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::get('/empresa', [EmpresaController::class, 'edit'])->name('empresa.edit');

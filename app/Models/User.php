@@ -8,21 +8,18 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Cashier\Billable;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, Billable;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'name',
         'email',
         'password',
+        'onboarding_completed_at',
     ];
 
     /**
@@ -45,11 +42,19 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'onboarding_completed_at' => 'datetime',
+            'trial_ends_at' => 'datetime',
+            'is_master_admin' => 'boolean',
         ];
     }
 
     public function empresa(): HasOne
     {
         return $this->hasOne(Empresa::class);
+    }
+
+    public function isMasterAdmin(): bool
+    {
+        return (bool) $this->is_master_admin;
     }
 }

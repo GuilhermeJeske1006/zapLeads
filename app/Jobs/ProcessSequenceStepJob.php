@@ -56,6 +56,10 @@ class ProcessSequenceStepJob implements ShouldQueue
             ? $whatsApp->sendImageMessage($lead->telefone, asset('storage/' . $step->imagem), $text, $lead->empresa_id, $channel)
             : $whatsApp->sendTextMessage($lead->telefone, $text, $lead->empresa_id, $channel);
 
+        if (($result['success'] ?? false) && ($lead->status ?? 'novo') === 'novo') {
+            $lead->update(['status' => 'contatado']);
+        }
+
         if (!$result['success']) {
             Log::warning('ProcessSequenceStepJob send failed', [
                 'enrollment_id' => $enrollment->id,
