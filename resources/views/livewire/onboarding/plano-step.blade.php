@@ -1,13 +1,13 @@
 <div>
     <div class="text-center mb-8">
         <h2 class="text-2xl font-bold text-white mb-2">Escolha seu plano</h2>
-        <p class="text-gray-400 text-sm">{{ $plan['trial_days'] }} dias grátis, sem cobrar nada agora.</p>
+        <p class="text-gray-400 text-sm">{{ __('messages.free_for_x_days', ['days' => $plan['trial_days']]) }}, sem cobrar nada agora.</p>
     </div>
 
     <div class="bg-gray-900 border-2 border-green-500/60 rounded-2xl p-8 relative">
         <div class="absolute -top-3 left-1/2 -translate-x-1/2">
             <span class="bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                {{ $plan['trial_days'] }} dias grátis
+                {{ __('messages.free_for_x_days', ['days' => $plan['trial_days']]) }}
             </span>
         </div>
 
@@ -16,9 +16,9 @@
             <div class="flex items-baseline justify-center gap-1 mt-4">
                 <span class="text-gray-400 text-sm">R$</span>
                 <span class="text-5xl font-bold text-white">{{ number_format($plan['price_brl'] / 100, 0, ',', '.') }}</span>
-                <span class="text-gray-400 text-sm">/mês</span>
+                <span class="text-gray-400 text-sm">{{ __('messages.per_month') }}</span>
             </div>
-            <p class="text-green-400 text-sm mt-2">Grátis nos primeiros {{ $plan['trial_days'] }} dias</p>
+            <p class="text-green-400 text-sm mt-2">{{ __('messages.free_for_x_days', ['days' => $plan['trial_days']]) }}</p>
         </div>
 
         <ul class="space-y-3 mb-8">
@@ -37,11 +37,11 @@
             wire:loading.attr="disabled"
             class="w-full bg-green-600 hover:bg-green-500 disabled:opacity-60 text-white font-semibold py-3 rounded-lg transition-colors"
         >
-            <span wire:loading.remove>Iniciar período gratuito →</span>
+            <span wire:loading.remove>{{ __('messages.start_free_trial') }}</span>
             <span wire:loading>Aguarde...</span>
         </button>
 
-        <p class="text-center text-xs text-gray-500 mt-4">Cancele quando quiser. Sem fidelidade.</p>
+        <p class="text-center text-xs text-gray-500 mt-4">{{ __('messages.cancel_anytime') }}</p>
     </div>
 
     <div class="mt-6 flex items-center justify-center gap-6 text-xs text-gray-500">

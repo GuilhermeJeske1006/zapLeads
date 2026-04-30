@@ -1,13 +1,13 @@
-<x-onboarding-layout :step="3">
+<x-onboarding-layout :step="4">
     @push('head')
     <script src="https://js.stripe.com/v3/"></script>
     @endpush
 
     <div>
         <div class="text-center mb-8">
-            <h2 class="text-2xl font-bold text-white mb-2">Dados de pagamento</h2>
+            <h2 class="text-2xl font-bold text-white mb-2">{{ __('messages.payment_data') }}</h2>
             <p class="text-gray-400 text-sm">
-                Seu trial de {{ $plan['trial_days'] }} dias começa agora. Você só será cobrado após o período gratuito.
+                {{ __('messages.trial_starts_now', ['days' => $plan['trial_days']]) }}
             </p>
         </div>
 
@@ -17,11 +17,11 @@
             <div class="flex items-center justify-between p-4 bg-gray-800/50 rounded-xl mb-6 border border-gray-700">
                 <div>
                     <p class="text-sm font-medium text-white">{{ $plan['name'] }}</p>
-                    <p class="text-xs text-green-400 mt-0.5">{{ $plan['trial_days'] }} dias grátis</p>
+                    <p class="text-xs text-green-400 mt-0.5">{{ __('messages.free_for_x_days', ['days' => $plan['trial_days']]) }}</p>
                 </div>
                 <div class="text-right">
                     <p class="text-lg font-bold text-white">R$ {{ number_format($plan['price_brl'] / 100, 2, ',', '.') }}/mês</p>
-                    <p class="text-xs text-gray-500">após o trial</p>
+                    <p class="text-xs text-gray-500">{{ __('messages.after_trial_text') }}</p>
                 </div>
             </div>
 
@@ -36,10 +36,10 @@
                 <input type="hidden" name="payment_method" id="payment-method-input">
 
                 <div class="mb-5">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">Dados do cartão</label>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">{{ __('messages.card_data') }}</label>
                     <div
-                        id="payment-element"
-                        class="bg-gray-800 border border-gray-700 rounded-lg p-4 min-h-[44px]"
+                        id="card-element"
+                        class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 min-h-[44px]"
                     ></div>
                     <div id="payment-errors" class="text-red-400 text-xs mt-2 hidden"></div>
                 </div>
@@ -49,12 +49,12 @@
                     type="submit"
                     class="w-full bg-green-600 hover:bg-green-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors"
                 >
-                    <span id="btn-text">Começar período gratuito →</span>
+                    <span id="btn-text">{{ __('messages.start_free_period') }}</span>
                     <span id="btn-loading" class="hidden">Processando...</span>
                 </button>
 
                 <p class="text-center text-xs text-gray-500 mt-4">
-                    Cobraremos R$ {{ number_format($plan['price_brl'] / 100, 2, ',', '.') }} após {{ $plan['trial_days'] }} dias. Cancele antes sem custo.
+                    {{ __('messages.billing_after_trial', ['price' => number_format($plan['price_brl'] / 100, 2, ',', '.'), 'days' => $plan['trial_days']]) }}
                 </p>
             </form>
         </div>
@@ -64,7 +64,7 @@
                 <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                 </svg>
-                SSL 256-bit
+                {{ __('messages.secure_payment') }}
             </div>
             <div class="flex items-center gap-1.5">
                 <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -77,42 +77,83 @@
 
     @push('scripts')
     <script>
-        const stripe = Stripe('{{ $stripeKey }}');
-        const elements = stripe.elements({
-            clientSecret: '{{ $intent->client_secret }}',
-            appearance: {
-                theme: 'night',
-                variables: {
-                    colorPrimary: '#22c55e',
-                    colorBackground: '#1f2937',
-                    colorText: '#f3f4f6',
-                    colorDanger: '#ef4444',
-                    fontFamily: 'Inter, sans-serif',
-                    borderRadius: '8px',
-                },
-            },
-        });
-
-        const paymentElement = elements.create('payment');
-        paymentElement.mount('#payment-element');
-
         const form = document.getElementById('payment-form');
         const submitBtn = document.getElementById('submit-btn');
         const btnText = document.getElementById('btn-text');
         const btnLoading = document.getElementById('btn-loading');
         const errorsDiv = document.getElementById('payment-errors');
+        let stripe;
+        let cardElement;
+
+        function showPaymentError(message) {
+            errorsDiv.textContent = message;
+            errorsDiv.classList.remove('hidden');
+        }
+
+        try {
+            stripe = Stripe('{{ $stripeKey }}');
+            const elements = stripe.elements({
+                appearance: {
+                    theme: 'night',
+                    variables: {
+                        colorPrimary: '#22c55e',
+                        colorBackground: '#1f2937',
+                        colorText: '#f3f4f6',
+                        colorDanger: '#ef4444',
+                        fontFamily: 'Inter, sans-serif',
+                        borderRadius: '8px',
+                    },
+                },
+            });
+
+            cardElement = elements.create('card', {
+                hidePostalCode: true,
+                style: {
+                    base: {
+                        color: '#f3f4f6',
+                        fontFamily: 'Inter, sans-serif',
+                        fontSize: '16px',
+                        '::placeholder': {
+                            color: '#9ca3af',
+                        },
+                    },
+                    invalid: {
+                        color: '#f87171',
+                        iconColor: '#f87171',
+                    },
+                },
+            });
+            cardElement.mount('#card-element');
+
+            cardElement.on('change', ({ error }) => {
+                if (error) {
+                    showPaymentError(error.message);
+                } else {
+                    errorsDiv.classList.add('hidden');
+                }
+            });
+        } catch (error) {
+            submitBtn.disabled = true;
+            showPaymentError('Não foi possível carregar os campos do cartão. Verifique a chave pública do Stripe e tente novamente.');
+        }
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
+
+            if (!stripe || !cardElement) {
+                showPaymentError('Os campos do cartão ainda não foram carregados.');
+                return;
+            }
 
             submitBtn.disabled = true;
             btnText.classList.add('hidden');
             btnLoading.classList.remove('hidden');
             errorsDiv.classList.add('hidden');
 
-            const { setupIntent, error } = await stripe.confirmSetup({
-                elements,
-                redirect: 'if_required',
+            const { setupIntent, error } = await stripe.confirmCardSetup('{{ $intent->client_secret }}', {
+                payment_method: {
+                    card: cardElement,
+                },
             });
 
             if (error) {

@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmpresaController;
 use App\Http\Controllers\LangController;
@@ -9,6 +8,9 @@ use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicCatalogoController;
 use App\Http\Controllers\WebhookController;
+use App\Http\Controllers\BillingController;
+use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Admin\SubscriptionsController as AdminSubscriptionsController;
 use App\Livewire\Onboarding\EmpresaStep;
 use App\Livewire\Onboarding\PlanoStep;
 use Illuminate\Support\Facades\Route;
@@ -32,6 +34,12 @@ Route::post('/webhook/stripe', '\Laravel\Cashier\Http\Controllers\WebhookControl
 // Breeze auth routes
 require __DIR__ . '/auth.php';
 
+// Onboarding: cadastro (guest)
+Route::middleware('guest')->prefix('onboarding')->name('onboarding.')->group(function () {
+    Route::get('/conta', [RegisteredUserController::class, 'create'])->name('register');
+    Route::post('/conta', [RegisteredUserController::class, 'store'])->name('register.store');
+});
+
 // Onboarding (auth, sem middleware onboarding para evitar loop)
 Route::middleware(['auth', 'set.locale'])->prefix('onboarding')->name('onboarding.')->group(function () {
     Route::get('/empresa', EmpresaStep::class)->name('empresa');
@@ -54,7 +62,14 @@ Route::middleware(['auth', 'set.locale', 'onboarding'])->group(function () {
     Route::get('/empresa', [EmpresaController::class, 'edit'])->name('empresa.edit');
     Route::put('/empresa', [EmpresaController::class, 'update'])->name('empresa.update');
 
+    Route::get('/assinatura', [BillingController::class, 'index'])->name('billing.index');
+    Route::post('/assinatura/cancelar', [BillingController::class, 'cancel'])->name('billing.cancel');
+
     Route::get('/chat', fn () => view('chat.index'))->name('chat.index');
     Route::get('/leads', [LeadController::class, 'index'])->name('leads.index');
-    Route::get('/campaigns', [CampaignController::class, 'index'])->name('campaigns.index');
+});
+
+// Admin (master admin only)
+Route::middleware(['auth', 'set.locale', 'master.admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/assinaturas', [AdminSubscriptionsController::class, 'index'])->name('subscriptions.index');
 });

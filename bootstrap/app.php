@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'set.locale' => \App\Http\Middleware\SetLocale::class,
             'onboarding' => \App\Http\Middleware\EnsureOnboardingComplete::class,
+            'master.admin' => \App\Http\Middleware\EnsureMasterAdmin::class,
         ]);
         $middleware->web(append: [
             \App\Http\Middleware\SetLocale::class,

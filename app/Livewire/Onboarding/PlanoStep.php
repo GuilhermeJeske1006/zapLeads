@@ -5,7 +5,7 @@ namespace App\Livewire\Onboarding;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
-#[Layout('components.onboarding-layout', ['step' => 2])]
+#[Layout('components.onboarding-layout', ['step' => 3])]
 class PlanoStep extends Component
 {
     public function prosseguir(): void

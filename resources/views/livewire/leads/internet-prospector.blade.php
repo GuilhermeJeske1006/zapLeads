@@ -9,8 +9,8 @@
                 </svg>
             </div>
             <div>
-                <h3 class="text-sm font-semibold text-white">Prospecção na Internet (Mapa + Lista)</h3>
-                <p class="text-xs text-gray-500">Busca empresas próximas na internet, ranqueia com IA e salva como leads</p>
+                <h3 class="text-sm font-semibold text-white">{{ __('messages.internet_prospecting') }}</h3>
+                <p class="text-xs text-gray-500">{{ __('messages.internet_prospecting_desc') }}</p>
             </div>
         </div>
 
@@ -25,7 +25,7 @@
             </div>
 
             <div>
-                <label class="block text-xs font-medium text-gray-400 mb-1.5">Tipo de cliente que você procura <span class="text-red-400">*</span></label>
+                <label class="block text-xs font-medium text-gray-400 mb-1.5">{{ __('messages.customer_type') }} <span class="text-red-400">*</span></label>
                 <textarea wire:model="tipoCliente" rows="3"
                           class="w-full px-3.5 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-200 placeholder-gray-600
                                  focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-colors resize-none"
@@ -34,13 +34,13 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-5">
             <div class="lg:col-span-2">
-                <label class="block text-xs font-medium text-gray-400 mb-1.5">Endereço da empresa <span class="text-red-400">*</span></label>
+                <label class="block text-xs font-medium text-gray-400 mb-1.5">{{ __('messages.company_address') }} <span class="text-red-400">*</span></label>
                 <input wire:model="endereco" type="text"
                        class="w-full px-3.5 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-200 placeholder-gray-600
                               focus:outline-none focus:border-emerald-500 transition-colors"
-                       placeholder="Rua, número, bairro">
+                       placeholder="{{ __('messages.street_placeholder') }}">
                 @error('endereco') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
             </div>
 
@@ -51,6 +51,15 @@
                               focus:outline-none focus:border-emerald-500 transition-colors"
                        placeholder="Cidade/UF">
                 @error('cidade') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1.5">Local da busca</label>
+                <input wire:model="localBusca" type="text"
+                       class="w-full px-3.5 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-200 placeholder-gray-600
+                              focus:outline-none focus:border-emerald-500 transition-colors"
+                       placeholder="Vazio = endereço da empresa">
+                @error('localBusca') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
             </div>
 
             <div>
@@ -85,18 +94,34 @@
     </div>
 
     {{-- Mapa + IA (sempre visível) --}}
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="lg:col-span-2 bg-gray-900 border border-gray-800 rounded-2xl p-5">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-sm font-semibold text-white">Mapa de potenciais clientes</h3>
-                    <span class="text-xs text-gray-500">Clique nos pontos para ver detalhes</span>
-                </div>
-                @if (!$buscaFeita)
-                    <p class="text-xs text-gray-500 mb-3">Preencha os dados acima e clique em “Buscar na internet” para plotar os resultados aqui.</p>
-                @endif
-                <div style="isolation: isolate; position: relative; z-index: 0;" wire:ignore>
-                    <div id="internet-map" class="h-80 rounded-xl overflow-hidden bg-gray-800"></div>
-                </div>
+	    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+	            <div class="lg:col-span-2 bg-gray-900 border border-gray-800 rounded-2xl p-5">
+	                <div class="flex items-center justify-between mb-4">
+	                    <h3 class="text-sm font-semibold text-white">Mapa de potenciais clientes</h3>
+	                    <span class="text-xs text-gray-500">Clique nos pontos para detalhes</span>
+	                </div>
+	                @if (!$buscaFeita)
+	                    <p class="text-xs text-gray-500 mb-3">Preencha os dados acima e clique em "Buscar na internet" para plotar os resultados aqui.</p>
+	                @endif
+
+                {{-- Custom location indicator --}}
+	                <div class="flex items-center gap-2 mb-2 min-h-[20px]">
+	                    @if($customLocationLabel)
+	                        <svg class="w-3.5 h-3.5 text-amber-400 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+	                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+	                        </svg>
+	                        <span class="text-xs text-amber-400 truncate max-w-xs" title="{{ $customLocationLabel }}">{{ $customLocationLabel }}</span>
+	                        <button wire:click="resetLocation" class="text-xs text-gray-500 hover:text-gray-300 underline whitespace-nowrap transition-colors">
+	                            Usar minha localização
+	                        </button>
+	                    @else
+	                        <span class="text-xs text-gray-600">Digite um local acima ou clique no mapa para buscar em outro lugar</span>
+	                    @endif
+	                </div>
+	
+	                <div style="isolation: isolate; position: relative; z-index: 0;" wire:ignore>
+	                    <div id="internet-map" class="h-80 rounded-xl overflow-hidden bg-gray-800"></div>
+	                </div>
                 @if (!config('services.mapbox.token'))
                     <p class="mt-3 text-xs text-yellow-300/80">
                         Para tiles do Mapbox, defina <span class="font-mono">MAPBOX_TOKEN</span> no <span class="font-mono">.env</span>.
@@ -127,12 +152,12 @@
                     @endif
                     @if ($warmCount > 0)
                         <div class="flex justify-between">
-                            <span class="text-gray-500">Médio match (50%+)</span>
+                            <span class="text-gray-500">{{ __('messages.medium_match') }}</span>
                             <span class="font-semibold text-yellow-400">{{ $warmCount }}</span>
                         </div>
                     @endif
                     <div class="pt-2 text-xs text-gray-500">
-                        Use “IA enviar” na lista para gerar e disparar a 1ª mensagem via WhatsApp (fila).
+                        {{ __('messages.ia_send_hint') }}
                     </div>
                 </div>
             </div>
@@ -171,7 +196,7 @@
                         <th class="px-3 py-3 text-left">Dist.</th>
                         <th class="px-3 py-3 text-left">Match IA</th>
                         <th class="px-3 py-3 text-left">Status</th>
-                        <th class="px-3 py-3 text-left">Ações</th>
+                        <th class="px-3 py-3 text-left">{{ __('messages.actions') }}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-800/50">
@@ -326,14 +351,43 @@
                     @empty
                         <tr>
                             <td colspan="6" class="px-4 py-10 text-center text-gray-500 text-sm">
-                                Nenhum resultado ainda. Faça uma busca acima.
+                                {{ __('messages.no_results_yet') }}
                             </td>
                         </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
+
+    @if($buscando)
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        {{-- Backdrop --}}
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="fecharModal"></div>
+
+        {{-- Panel --}}
+        <div class="relative w-full max-w-2xl bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden">
+
+
+            {{-- Body --}}
+            <div class="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
+
+                <div class="flex items-center gap-3">
+                    <svg class="w-6 h-6 animate-spin text-emerald-400" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    <p class="text-sm text-gray-300">Buscando potenciais clientes na internet...</p>
+                </div>
+
+            </div>
+
+
+        </div>
+    </div>
+ @endif
 </div>
+
+
 
 {{-- Modal de detalhes do lead --}}
 @if ($showModal && $modalLead)
@@ -406,7 +460,7 @@
                 @if (!empty($modalLead['ai_insights']))
                     @php $ai = $modalLead['ai_insights']; @endphp
                     <div class="bg-violet-500/5 border border-violet-500/20 rounded-xl p-4 space-y-2">
-                        <p class="text-xs font-semibold text-violet-400 uppercase tracking-wide">Análise IA</p>
+                        <p class="text-xs font-semibold text-violet-400 uppercase tracking-wide">{{ __('messages.ai_analysis') }}</p>
                         @if (!empty($ai['match_score']))
                             <div class="flex items-center gap-2">
                                 <span class="text-xs text-gray-400">Match:</span>
@@ -418,7 +472,7 @@
                         @endif
                         @if (!empty($ai['rating']))
                             <div class="flex items-center gap-2">
-                                <span class="text-xs text-gray-400">Avaliação Google:</span>
+                                <span class="text-xs text-gray-400">{{ __('messages.google_rating') }}</span>
                                 <span class="text-sm font-medium text-yellow-400">★ {{ $ai['rating'] }}</span>
                                 @if (!empty($ai['user_ratings_total']))
                                     <span class="text-xs text-gray-500">({{ $ai['user_ratings_total'] }} avaliações)</span>
@@ -492,12 +546,16 @@
     let map = null;
     let markersLayer = null;
     let radiusCircle = null;
+    let customMarker = null;
+    let customCenter = null;
+    let lojaData = null;
 
     function initMap(loja) {
         const el = document.getElementById('internet-map');
         if (!el || map) return;
         if (!loja?.latitude || !loja?.longitude) return;
 
+        lojaData = loja;
         map = L.map('internet-map').setView([loja.latitude, loja.longitude], 13);
 
         if (mapboxToken) {
@@ -532,16 +590,85 @@
             color: '#10b981', fillColor: '#10b981', fillOpacity: 0.06, weight: 1,
         }).addTo(map);
 
+        // Click on map to set custom search center
+        map.on('click', function (e) {
+            const { lat, lng } = e.latlng;
+            const customIcon = L.divIcon({
+                className: '',
+                html: `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
+                    <path d="M14 0C6.27 0 0 6.27 0 14c0 9.625 14 22 14 22s14-12.375 14-22C28 6.27 21.73 0 14 0z" fill="#f59e0b" stroke="#fff" stroke-width="1.5"/>
+                    <circle cx="14" cy="14" r="6" fill="#fff"/>
+                </svg>`,
+                iconSize: [28, 36],
+                iconAnchor: [14, 36],
+                popupAnchor: [0, -36],
+            });
+
+            if (customMarker) {
+                customMarker.setLatLng([lat, lng]);
+            } else {
+                customMarker = L.marker([lat, lng], { icon: customIcon, draggable: true }).addTo(map);
+                customMarker.bindPopup('Local de busca personalizado').openPopup();
+                customMarker.on('dragend', function (ev) {
+                    const pos = ev.target.getLatLng();
+                    applyCustomCenter(pos.lat, pos.lng);
+                });
+            }
+
+            if (radiusCircle) radiusCircle.setLatLng([lat, lng]);
+            applyCustomCenter(lat, lng);
+        });
+
         map.invalidateSize();
     }
 
-    function renderLeads(leads, loja) {
+	    function getWire() {
+	        const mapEl = document.getElementById('internet-map');
+	        const compEl = mapEl?.closest('[wire\\:id]');
+	        const wireId = compEl?.getAttribute('wire:id');
+	        return wireId ? Livewire.find(wireId) : null;
+	    }
+
+        function notifyLivewireCustomLocation(lat, lng, label) {
+            // Preferred (Livewire v3/v4): global dispatch to any listening component instance
+            if (window.Livewire?.dispatch) {
+                window.Livewire.dispatch('internet-prospector:set-custom-location', { lat, lng, label });
+                return;
+            }
+
+            // Fallback: call method on nearest component (older Livewire)
+            getWire()?.call('setCustomLocation', lat, lng, label);
+        }
+
+	    function applyCustomCenter(lat, lng) {
+	        customCenter = { lat, lng };
+	        const notify = (label) => notifyLivewireCustomLocation(lat, lng, label);
+
+	        if (mapboxToken) {
+	            fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxToken}&limit=1`)
+	                .then(r => r.json())
+	                .then(data => notify(data.features?.[0]?.place_name ?? ''))
+	                .catch(() => notify(''));
+	        } else {
+	            notify('');
+	        }
+	    }
+
+    function renderLeads(leads, loja, searchCenter = null) {
+        if (loja) lojaData = loja;
         initMap(loja);
         if (!map || !markersLayer) return;
 
         markersLayer.clearLayers();
-        map.setView([loja.latitude, loja.longitude], 13);
-        if (radiusCircle) radiusCircle.setRadius((loja.raio_atendimento || 5) * 1000);
+
+        const center = searchCenter || customCenter || (loja ? { lat: loja.latitude, lng: loja.longitude } : null);
+        if (center) {
+            map.setView([center.lat, center.lng], 13);
+            if (radiusCircle) {
+                radiusCircle.setLatLng([center.lat, center.lng]);
+                radiusCircle.setRadius((loja?.raio_atendimento || 5) * 1000);
+            }
+        }
 
         let bounds = [];
         leads.forEach(lead => {
@@ -585,9 +712,10 @@
     function handleEvent(detail) {
         const leads = detail?.leads || [];
         const loja  = detail?.loja || detail?.empresa || null;
+        const searchCenter = detail?.searchCenter || null;
         // nextTick: garante que o div #internet-map já foi inserido no DOM pelo Livewire
         requestAnimationFrame(() => {
-            setTimeout(() => renderLeads(leads, loja), 50);
+            setTimeout(() => renderLeads(leads, loja, searchCenter), 50);
         });
     }
 
@@ -605,6 +733,17 @@
             Livewire.on('internet-leads-updated', (params) => {
                 const detail = Array.isArray(params) ? params[0] : params;
                 handleEvent(detail);
+            });
+            Livewire.on('location-reset', () => {
+                customCenter = null;
+                if (customMarker && map) {
+                    map.removeLayer(customMarker);
+                    customMarker = null;
+                }
+                if (radiusCircle && lojaData) {
+                    radiusCircle.setLatLng([lojaData.latitude, lojaData.longitude]);
+                    map?.setView([lojaData.latitude, lojaData.longitude], 13);
+                }
             });
         }
     }

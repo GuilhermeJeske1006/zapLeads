@@ -8,11 +8,11 @@
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                     </svg>
-                    Adicionar lead
+                    {{ __('messages.add_lead') }}
                 </button>
 
                 <button wire:click="deleteAllLeads"
-                        wire:confirm="Excluir TODOS os leads? Esta ação não pode ser desfeita."
+                        wire:confirm="{{ __('messages.delete_all_leads_confirm') }}"
                         class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium
                                bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30
                                rounded-lg transition-colors">
@@ -20,7 +20,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                     </svg>
-                    Excluir todos
+                    {{ __('messages.delete_all') }}
                 </button>
             </div>
     <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 mb-4">
@@ -45,7 +45,12 @@
 
             <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer pb-1.5">
                 <input wire:model.live="filterNearby" type="checkbox" class="w-4 h-4 accent-green-500">
-                📍 Próximos
+                📍 {{ __('messages.nearby') }}
+            </label>
+
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer pb-1.5">
+                <input wire:model.live="geoFilterEnabled" type="checkbox" class="w-4 h-4 accent-amber-500">
+                🗺️ Buscar por local
             </label>
 
             @if ($hasFilters)
@@ -55,6 +60,63 @@
             @endif
 
           
+        </div>
+
+        {{-- Geo filter --}}
+        <div class="{{ $geoFilterEnabled ? '' : 'hidden' }} mt-4 pt-4 border-t border-gray-800" data-leads-geo-panel>
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-2 min-w-0">
+                    <span class="text-xs text-gray-500">Centro:</span>
+                    @if ($geoLabel)
+                        <span class="text-xs text-amber-400 truncate max-w-[520px]" title="{{ $geoLabel }}">{{ $geoLabel }}</span>
+                    @else
+                        <span class="text-xs text-gray-600">Clique no mapa para selecionar</span>
+                    @endif
+                </div>
+
+                <div class="ml-auto flex items-end gap-2">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Raio (km)</label>
+                        <input wire:model.live="geoRadiusKm" type="number" min="1" max="200" step="0.5" data-leads-geo-radius
+                               class="w-28 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-300
+                                      focus:outline-none focus:border-amber-500">
+                    </div>
+
+                    <button type="button" data-leads-geo-locate
+                            class="mb-0.5 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium
+                                   bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30
+                                   rounded-lg transition-colors">
+                        Minha localização
+                    </button>
+
+                    <button wire:click="resetGeoFilter"
+                            class="mb-0.5 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium
+                                   bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700
+                                   rounded-lg transition-colors">
+                        Resetar
+                    </button>
+                </div>
+            </div>
+
+            <p class="mt-2 text-xs text-gray-600">Dica: arraste o marcador ou clique no mapa para mudar o centro da busca.</p>
+
+            <div class="mt-3" style="isolation: isolate; position: relative; z-index: 0;" wire:ignore>
+                <div
+                    id="leads-geo-map"
+                    data-leads-geo-map
+                    data-mapbox-token="{{ (string) config('services.mapbox.token') }}"
+                    data-mapbox-style="{{ (string) config('services.mapbox.style', 'mapbox/streets-v12') }}"
+                    data-center-lat="{{ (string) ($empresa->latitude ?? '') }}"
+                    data-center-lng="{{ (string) ($empresa->longitude ?? '') }}"
+                    class="h-56 rounded-xl overflow-hidden bg-gray-800"
+                ></div>
+            </div>
+
+            @if (!config('services.mapbox.token'))
+                <p class="mt-2 text-xs text-yellow-300/80">
+                    Para tiles e endereço automático, defina <span class="font-mono">MAPBOX_TOKEN</span> no <span class="font-mono">.env</span>.
+                </p>
+            @endif
         </div>
     </div>
 
@@ -73,7 +135,7 @@
                     <th class="px-3 py-3 text-left">Telefone</th>
                     <th class="px-3 py-3 text-left">Local</th>
                     <th class="px-3 py-3 text-left">Status</th>
-                    <th class="px-3 py-3 text-left">Ações</th>
+                    <th class="px-3 py-3 text-left">{{ __('messages.actions') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-800/50">
@@ -175,7 +237,7 @@
                             <div class="flex items-center gap-1">
                                 @if ($mapsLink)
                                     <a href="{{ $mapsLink }}" target="_blank" rel="noopener noreferrer"
-                                       title="Ver localização no mapa"
+                                       title="{{ __('messages.view_location_map') }}"
                                        class="inline-flex items-center justify-center w-7 h-7
                                               bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30
                                               rounded-lg transition-colors">
@@ -244,7 +306,7 @@
                 @empty
                     <tr>
                         <td colspan="5" class="px-4 py-12 text-center text-gray-500 text-sm">
-                            Nenhum lead encontrado.
+                            {{ __('messages.no_lead_found') }}
                         </td>
                     </tr>
                 @endforelse
@@ -271,7 +333,7 @@
 
         <div class="relative w-full max-w-lg bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden">
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-800">
-                <h3 class="text-base font-semibold text-white">Adicionar lead</h3>
+                <h3 class="text-base font-semibold text-white">{{ __('messages.add_lead') }}</h3>
                 <button wire:click="fecharAddModal"
                         class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -313,7 +375,7 @@
                     </div>
 
                     <div>
-                        <label class="block text-xs text-gray-400 mb-1">Endereço</label>
+                        <label class="block text-xs text-gray-400 mb-1">{{ __('messages.address') }}</label>
                         <input wire:model="addEndereco" type="text" placeholder="Rua..."
                             class="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
                     </div>
@@ -329,11 +391,11 @@
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" wire:click="fecharAddModal"
                         class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm rounded-xl transition-colors">
-                        Cancelar
+                        {{ __('messages.cancel') }}
                     </button>
                     <button type="submit"
                         class="px-5 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-xl transition-colors">
-                        Salvar lead
+                        {{ __('messages.save_lead') }}
                     </button>
                 </div>
             </form>
@@ -379,8 +441,8 @@
                             $mFields = [
                                 ['label' => 'Telefone',    'value' => $modalLead['telefone'] ?: null],
                                 ['label' => 'Cidade',      'value' => $modalLead['cidade']   ?: null],
-                                ['label' => 'Endereço',    'value' => $modalLead['endereco'] ?: null],
-                                ['label' => 'Distância',   'value' => isset($modalLead['distancia_km']) ? number_format((float)$modalLead['distancia_km'], 1).' km' : null],
+                                ['label' => __('messages.address'),    'value' => $modalLead['endereco'] ?: null],
+                                ['label' => __('messages.distance'),   'value' => isset($modalLead['distancia_km']) ? number_format((float)$modalLead['distancia_km'], 1).' km' : null],
                                 ['label' => 'Proximidade', 'value' => ($modalLead['is_nearby'] ?? false) ? 'Dentro do raio ✓' : 'Fora do raio'],
                                 ['label' => 'Score',       'value' => ($modalLead['lead_score'] ?? 0).' pts'],
                                 ['label' => 'Status',      'value' => \App\Models\Lead::STATUSES[$modalLead['status'] ?? 'novo']['label'] ?? 'Novo'],
@@ -415,7 +477,7 @@
 
                     @if ($modalMapsLink)
                         <div class="bg-gray-800/60 rounded-xl p-3">
-                            <p class="text-xs text-gray-500 mb-1">Localização</p>
+                            <p class="text-xs text-gray-500 mb-1">{{ __('messages.location') }}</p>
                             <a href="{{ $modalMapsLink }}" target="_blank" rel="noopener noreferrer"
                                class="inline-flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -442,7 +504,7 @@
                     @if (!empty($modalLead['ai_insights']))
                         @php $ai = $modalLead['ai_insights']; @endphp
                         <div class="bg-violet-500/5 border border-violet-500/20 rounded-xl p-4 space-y-2">
-                            <p class="text-xs font-semibold text-violet-400 uppercase tracking-wide">Análise IA</p>
+                            <p class="text-xs font-semibold text-violet-400 uppercase tracking-wide">{{ __('messages.ai_analysis') }}</p>
                             @if (!empty($ai['match_score']))
                                 <div class="flex items-center gap-2">
                                     <span class="text-xs text-gray-400">Match:</span>
@@ -454,7 +516,7 @@
                             @endif
                             @if (!empty($ai['rating']))
                                 <div class="flex items-center gap-2">
-                                    <span class="text-xs text-gray-400">Avaliação:</span>
+                                    <span class="text-xs text-gray-400">{{ __('messages.rating_label') }}</span>
                                     <span class="text-sm font-medium text-yellow-400">★ {{ $ai['rating'] }}</span>
                                     @if (!empty($ai['user_ratings_total']))
                                         <span class="text-xs text-gray-500">({{ $ai['user_ratings_total'] }})</span>
@@ -463,7 +525,7 @@
                             @endif
                             @if (!empty($ai['sugestao_mensagem']))
                                 <div class="bg-gray-800/60 rounded-lg p-2">
-                                    <p class="text-xs text-gray-500 mb-1">Sugestão de mensagem</p>
+                                    <p class="text-xs text-gray-500 mb-1">{{ __('messages.message_suggestion') }}</p>
                                     <p class="text-xs text-gray-200">{{ $ai['sugestao_mensagem'] }}</p>
                                 </div>
                             @endif
@@ -512,4 +574,5 @@
     @endif
     </div>
     @endteleport
+
 </div>

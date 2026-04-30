@@ -10,6 +10,8 @@ use App\Models\Message;
 use App\Jobs\FindInternetLeadsJob;
 use App\Jobs\SendWhatsAppMessageJob;
 use App\Services\AIService;
+use App\Services\Geo\GeocodingService;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 class InternetProspector extends Component
@@ -20,12 +22,17 @@ class InternetProspector extends Component
     public string $tipoCliente = '';
     public string $endereco = '';
     public string $cidade = '';
+    public string $localBusca = '';
     public float $raioBuscaKm = 5;
 
     public bool $buscando = false;
     public bool $buscaFeita = false;
     public ?int $searchId = null;
     public string $dispatchedAt = '';
+
+    public ?float $customLat = null;
+    public ?float $customLng = null;
+    public string $customLocationLabel = '';
 
     /** @var array<int, array<string, mixed>> */
     public array $resultados = [];
@@ -39,7 +46,41 @@ class InternetProspector extends Component
         $this->tipoCliente = (string) ($this->empresa->tipo_cliente_alvo ?? '');
         $this->endereco = (string) ($this->empresa->endereco ?? '');
         $this->cidade = (string) ($this->empresa->cidade ?? '');
+        $this->localBusca = '';
         $this->raioBuscaKm = (float) ($this->empresa->raio_atendimento ?? 5);
+    }
+
+    public function setCustomLocation(float $lat, float $lng, string $label = ''): void
+    {
+        $this->customLat = $lat;
+        $this->customLng = $lng;
+        $this->customLocationLabel = mb_substr($label ?: number_format($lat, 5) . ', ' . number_format($lng, 5), 0, 150);
+        $this->localBusca = $this->customLocationLabel;
+    }
+
+    #[On('internet-prospector:set-custom-location')]
+    public function setCustomLocationFromEvent($lat = null, $lng = null, string $label = ''): void
+    {
+        if ($lat === null || $lng === null) {
+            return;
+        }
+
+        $lat = (float) $lat;
+        $lng = (float) $lng;
+        if (!$lat || !$lng) {
+            return;
+        }
+
+        $this->setCustomLocation($lat, $lng, $label);
+    }
+
+    public function resetLocation(): void
+    {
+        $this->customLat = null;
+        $this->customLng = null;
+        $this->customLocationLabel = '';
+        $this->localBusca = '';
+        $this->dispatch('location-reset');
     }
 
     public function buscar(): void
@@ -49,14 +90,46 @@ class InternetProspector extends Component
             'tipoCliente' => 'required|min:5',
             'endereco' => 'required|min:5',
             'cidade' => 'required|min:2',
+            'localBusca' => 'nullable|string|min:2|max:150',
             'raioBuscaKm' => 'required|numeric|min:1|max:50',
         ], [
             'descricaoEmpresa.required' => 'Descreva sua empresa.',
             'tipoCliente.required' => 'Informe o tipo de cliente desejado.',
-            'endereco.required' => 'Informe o endereço da empresa.',
+            'endereco.required' => __('messages.address_required'),
             'cidade.required' => 'Informe a cidade.',
             'raioBuscaKm.required' => 'Informe o raio de busca.',
         ]);
+
+        $localBusca = trim($this->localBusca);
+        if ($localBusca !== '') {
+            $hasSelectedMapPoint = $this->customLat !== null
+                && $this->customLng !== null
+                && $localBusca === trim($this->customLocationLabel);
+
+            if (!$hasSelectedMapPoint) {
+                $geo = app(GeocodingService::class);
+                $geoQuery = $localBusca;
+                $cityHint = trim($this->cidade);
+                if ($cityHint !== '' && !str_contains(mb_strtolower($geoQuery), mb_strtolower($cityHint))) {
+                    $geoQuery .= ' ' . $cityHint;
+                }
+
+                $hit = $geo->geocode($geoQuery);
+                if (!$hit) {
+                    $this->dispatch('toast', type: 'error', message: 'Não foi possível localizar o local da busca. Verifique cidade/UF e tente novamente.');
+                    return;
+                }
+
+                $this->customLat = (float) $hit['lat'];
+                $this->customLng = (float) $hit['lng'];
+                $this->customLocationLabel = mb_substr((string) ($hit['display_name'] ?? $localBusca), 0, 150);
+                $this->localBusca = $this->customLocationLabel;
+            }
+        } else {
+            $this->customLat = null;
+            $this->customLng = null;
+            $this->customLocationLabel = '';
+        }
 
         $this->empresa->update([
             'descricao_empresa' => $this->descricaoEmpresa,
@@ -77,6 +150,10 @@ class InternetProspector extends Component
             $this->descricaoEmpresa,
             $this->tipoCliente,
             $this->raioBuscaKm,
+            60,
+            $this->customLat,
+            $this->customLng,
+            $this->customLocationLabel ?: $localBusca,
         );
     }
 
@@ -118,7 +195,10 @@ class InternetProspector extends Component
             ->all();
 
         $this->buscaFeita = true;
-        $this->dispatch('internet-leads-updated', leads: $this->resultados, empresa: $this->empresa->fresh());
+        $this->dispatch('internet-leads-updated', leads: $this->resultados, empresa: $this->empresa->fresh(), searchCenter: [
+            'lat' => $search->latitude,
+            'lng' => $search->longitude,
+        ]);
     }
 
     public function enviarMensagemIA(int $leadId, AIService $ai): void
@@ -126,7 +206,7 @@ class InternetProspector extends Component
         $lead = $this->empresa->leads()->findOrFail($leadId);
 
         if (!trim((string) $lead->telefone)) {
-            $this->dispatch('toast', type: 'error', message: 'Este lead não tem telefone disponível.');
+            $this->dispatch('toast', type: 'error', message: __('messages.lead_no_phone'));
             return;
         }
 
@@ -137,7 +217,7 @@ class InternetProspector extends Component
 
         $text = $ai->gerarPrimeiraMensagemProspeccao($this->empresa, $lead);
         if (!trim($text)) {
-            $this->dispatch('toast', type: 'error', message: 'Não foi possível gerar a mensagem. Tente novamente.');
+            $this->dispatch('toast', type: 'error', message: __('messages.message_generation_failed'));
             return;
         }
 
@@ -158,7 +238,7 @@ class InternetProspector extends Component
             'status' => 'active',
         ]);
 
-        $this->dispatch('toast', type: 'success', message: 'Mensagem enviada pela IA (fila).');
+        $this->dispatch('toast', type: 'success', message: __('messages.message_sent_ai'));
     }
 
     public function verNaTabelaDeLeads(): void
@@ -196,6 +276,7 @@ class InternetProspector extends Component
         }
 
         $lead->update(['status' => $status]);
+        $this->dispatch('toast', type: 'success', message: __('messages.status_updated'));
 
         foreach ($this->resultados as &$r) {
             if ((int) $r['id'] === $leadId) {
@@ -204,8 +285,6 @@ class InternetProspector extends Component
             }
         }
         unset($r);
-
-        $this->dispatch('toast', type: 'success', message: 'Status atualizado.');
     }
 
     public function render()

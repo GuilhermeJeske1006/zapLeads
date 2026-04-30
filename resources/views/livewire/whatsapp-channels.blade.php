@@ -3,13 +3,13 @@
     <form wire:submit="save" class="space-y-3">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-                <label class="block text-sm text-gray-400 mb-1">Nome do canal</label>
+                <label class="block text-sm text-gray-400 mb-1">{{ __('messages.channel_name') }}</label>
                 <input wire:model="nome" type="text" placeholder="Ex: Vendas, Suporte"
                     class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
                 @error('nome') <span class="text-red-400 text-xs">{{ $message }}</span> @enderror
             </div>
             <div>
-                <label class="block text-sm text-gray-400 mb-1">Número Twilio</label>
+                <label class="block text-sm text-gray-400 mb-1">{{ __('messages.twilio_number') }}</label>
                 <input wire:model="numero" type="text" placeholder="whatsapp:+5511999990000"
                     class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
                 @error('numero') <span class="text-red-400 text-xs">{{ $message }}</span> @enderror
@@ -19,23 +19,23 @@
         <div class="flex items-center gap-4">
             <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
                 <input wire:model="isDefault" type="checkbox" class="rounded border-gray-600 bg-gray-800 text-green-500 focus:ring-green-500">
-                Canal padrão
+                {{ __('messages.channel_default') }}
             </label>
             <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
                 <input wire:model="ativo" type="checkbox" class="rounded border-gray-600 bg-gray-800 text-green-500 focus:ring-green-500">
-                Ativo
+                {{ __('messages.active') }}
             </label>
         </div>
 
         <div class="flex gap-2">
             <button type="submit"
                 class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-lg transition-colors">
-                {{ $editingId ? 'Salvar alterações' : 'Adicionar canal' }}
+                {{ $editingId ? __('messages.save_changes') : __('messages.add_channel') }}
             </button>
             @if($editingId)
                 <button type="button" wire:click="cancelEdit"
                     class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg transition-colors">
-                    Cancelar
+                    {{ __('messages.cancel') }}
                 </button>
             @endif
         </div>
@@ -48,7 +48,7 @@
                 <thead>
                     <tr class="text-gray-500 border-b border-gray-800 text-xs uppercase">
                         <th class="pb-2 pr-4">Nome</th>
-                        <th class="pb-2 pr-4">Número</th>
+                        <th class="pb-2 pr-4">{{ __('messages.twilio_number') }}</th>
                         <th class="pb-2 pr-4">Status</th>
                         <th class="pb-2"></th>
                     </tr>
@@ -59,7 +59,7 @@
                             <td class="py-2.5 pr-4">
                                 <span class="font-medium text-white">{{ $channel->nome }}</span>
                                 @if($channel->is_default)
-                                    <span class="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-900/50 text-green-400 border border-green-800">padrão</span>
+                                    <span class="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-900/50 text-green-400 border border-green-800">{{ __('messages.channel_default') }}</span>
                                 @endif
                             </td>
                             <td class="py-2.5 pr-4 font-mono text-xs text-gray-400">{{ $channel->numero }}</td>
@@ -75,17 +75,17 @@
                                     @if(!$channel->is_default)
                                         <button wire:click="setDefault({{ $channel->id }})"
                                             class="text-xs text-gray-500 hover:text-green-400 transition-colors">
-                                            padrão
+                                            {{ __('messages.channel_default') }}
                                         </button>
                                     @endif
                                     <button wire:click="edit({{ $channel->id }})"
                                         class="text-xs text-gray-500 hover:text-blue-400 transition-colors">
-                                        editar
+                                        {{ __('messages.edit') }}
                                     </button>
                                     <button wire:click="delete({{ $channel->id }})"
-                                        wire:confirm="Remover este canal?"
+                                        wire:confirm="{{ __('messages.remove_channel_confirm') }}"
                                         class="text-xs text-gray-500 hover:text-red-400 transition-colors">
-                                        remover
+                                        {{ __('messages.delete') }}
                                     </button>
                                 </div>
                             </td>
@@ -95,6 +95,6 @@
             </table>
         </div>
     @else
-        <p class="text-sm text-gray-500">Nenhum canal configurado. Adicione um número acima.</p>
+        <p class="text-sm text-gray-500">{{ __('messages.no_channel_configured') }}</p>
     @endif
 </div>

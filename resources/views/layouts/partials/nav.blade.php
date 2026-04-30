@@ -4,17 +4,22 @@ $navItems = [
     ['route' => 'empresa.edit', 'label' => __('messages.nav_empresa'), 'icon' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'],
     ['route' => 'chat.index', 'label' => __('messages.nav_chat'), 'icon' => 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z'],
     ['route' => 'leads.index', 'label' => __('messages.nav_leads'), 'icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'],
-    ['route' => 'campaigns.index', 'label' => __('messages.nav_campaigns'), 'icon' => 'M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z'],
 ];
+
+if (auth()->user()?->isMasterAdmin()) {
+    $navItems[] = ['route' => 'admin.subscriptions.index', 'label' => 'Admin', 'icon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'];
+}
 @endphp
 
 @foreach ($navItems as $item)
-    <a href="{{ route($item['route']) }}"
-       class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group
-              {{ request()->routeIs($item['route'] . '*') ? 'bg-green-600/20 text-green-400' : 'text-gray-400 hover:text-white hover:bg-gray-800' }}">
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="{{ $item['icon'] }}"/>
-        </svg>
-        {{ $item['label'] }}
-    </a>
+    @if (\Illuminate\Support\Facades\Route::has($item['route']))
+        <a href="{{ route($item['route']) }}"
+           class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group
+                  {{ request()->routeIs($item['route'] . '*') ? 'bg-green-600/20 text-green-400' : 'text-gray-400 hover:text-white hover:bg-gray-800' }}">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="{{ $item['icon'] }}"/>
+            </svg>
+            {{ $item['label'] }}
+        </a>
+    @endif
 @endforeach

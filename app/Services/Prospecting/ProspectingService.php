@@ -38,15 +38,17 @@ class ProspectingService
         }
     }
 
-    public function run(Empresa $empresa, string $descricaoEmpresa, string $tipoCliente, float $radiusKm, int $maxResults = 60): ProspectingSearch
+    public function run(Empresa $empresa, string $descricaoEmpresa, string $tipoCliente, float $radiusKm, int $maxResults = 60, ?float $customLat = null, ?float $customLng = null, string $customLocationLabel = ''): ProspectingSearch
     {
         if (!$this->placesEnabled) {
+            $lat = $customLat ?? (float) ($empresa->latitude ?? 0);
+            $lng = $customLng ?? (float) ($empresa->longitude ?? 0);
             return ProspectingSearch::create([
                 'empresa_id' => $empresa->id,
                 'descricao_empresa' => $descricaoEmpresa,
                 'tipo_cliente' => $tipoCliente,
-                'latitude' => (float) ($empresa->latitude ?? 0),
-                'longitude' => (float) ($empresa->longitude ?? 0),
+                'latitude' => $lat,
+                'longitude' => $lng,
                 'radius_km' => $radiusKm,
                 'keywords' => [],
                 'status' => 'failed',
@@ -54,19 +56,25 @@ class ProspectingService
             ]);
         }
 
-        $coords = $this->ensureStoreCoords($empresa);
-        if (!$coords) {
-            return ProspectingSearch::create([
-                'empresa_id' => $empresa->id,
-                'descricao_empresa' => $descricaoEmpresa,
-                'tipo_cliente' => $tipoCliente,
-                'latitude' => 0,
-                'longitude' => 0,
-                'radius_km' => $radiusKm,
-                'keywords' => [],
-                'status' => 'failed',
-                'error' => 'Não foi possível localizar o endereço da empresa. Atualize o endereço e tente novamente.',
-            ]);
+        if ($customLat !== null && $customLng !== null) {
+            $coords = ['lat' => $customLat, 'lng' => $customLng];
+            $searchCity = $this->locationLabelToCity($customLocationLabel) ?: $empresa->cidade;
+        } else {
+            $coords = $this->ensureStoreCoords($empresa);
+            if (!$coords) {
+                return ProspectingSearch::create([
+                    'empresa_id' => $empresa->id,
+                    'descricao_empresa' => $descricaoEmpresa,
+                    'tipo_cliente' => $tipoCliente,
+                    'latitude' => 0,
+                    'longitude' => 0,
+                    'radius_km' => $radiusKm,
+                    'keywords' => [],
+                    'status' => 'failed',
+                    'error' => 'Não foi possível localizar o endereço da empresa. Atualize o endereço e tente novamente.',
+                ]);
+            }
+            $searchCity = $empresa->cidade;
         }
 
         $keywords = $this->ai->gerarKeywordsProspeccao($descricaoEmpresa, $tipoCliente);
@@ -114,7 +122,7 @@ class ProspectingService
             $leads = [];
             foreach (array_values($collected) as $p) {
                 try {
-                    $lead = $this->upsertLeadFromPlace($empresa, $search, $p, $radiusKm);
+                    $lead = $this->upsertLeadFromPlace($empresa, $search, $p, $radiusKm, $coords, $searchCity);
                     if ($lead) {
                         $leads[] = $lead;
                     }
@@ -165,7 +173,7 @@ class ProspectingService
         }
     }
 
-    private function upsertLeadFromPlace(Empresa $empresa, ProspectingSearch $search, array $place, float $radiusKm): ?Lead
+    private function upsertLeadFromPlace(Empresa $empresa, ProspectingSearch $search, array $place, float $radiusKm, array $center, ?string $searchCity = null): ?Lead
     {
         $lat = (float) ($place['lat'] ?? 0);
         $lng = (float) ($place['lng'] ?? 0);
@@ -173,7 +181,7 @@ class ProspectingService
             return null;
         }
 
-        $distKm = Distance::haversineKm((float) $empresa->latitude, (float) $empresa->longitude, $lat, $lng);
+        $distKm = Distance::haversineKm($center['lat'], $center['lng'], $lat, $lng);
         $isNearby = $distKm <= $radiusKm;
 
         $externalId = (string) ($place['external_id'] ?? '');
@@ -192,7 +200,7 @@ class ProspectingService
             'external_id' => $externalId,
             'latitude' => $lat,
             'longitude' => $lng,
-            'cidade' => $empresa->cidade,
+            'cidade' => $searchCity ?: $empresa->cidade,
             'endereco' => $place['address'] ?? null,
             'website' => $place['website'] ?? null,
             'distancia_km' => round($distKm, 2),
@@ -242,5 +250,35 @@ class ProspectingService
             return ['lojas', 'empresas', 'serviços'];
         }
         return array_values(array_filter(array_map('trim', preg_split('/[,;\n]/', $tipoCliente) ?: [])));
+    }
+
+    private function locationLabelToCity(string $label): ?string
+    {
+        $label = trim($label);
+        if ($label === '') {
+            return null;
+        }
+
+        $parts = array_values(array_filter(array_map('trim', explode(',', $label))));
+        if (empty($parts)) {
+            return null;
+        }
+
+        // Mapbox often returns: "Rua X, Bairro, Cidade - UF, Brasil"
+        foreach (array_reverse($parts) as $part) {
+            if (preg_match('/^(.+?)\\s*-\\s*[A-Z]{2}\\b/u', $part, $m)) {
+                $candidate = trim($m[1]);
+                return $candidate !== '' ? mb_substr($candidate, 0, 100) : null;
+            }
+        }
+
+        // Fallback: if label looks like "Cidade/UF" or "Cidade - UF"
+        $labelNorm = preg_replace('/\\s+/', ' ', $label);
+        if (preg_match('/^(.+?)(?:\\s*\\/\\s*|\\s*-\\s*)([A-Z]{2})\\b/u', $labelNorm, $m)) {
+            $candidate = trim($m[1]);
+            return $candidate !== '' ? mb_substr($candidate, 0, 100) : null;
+        }
+
+        return null;
     }
 }

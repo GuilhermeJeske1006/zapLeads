@@ -35,7 +35,7 @@
 
             <div>
                 <label class="block text-xs font-medium text-gray-400 mb-1.5">
-                    Tipo de cliente que você procura
+                    {{ __('messages.customer_type') }}
                     <span class="text-red-400 ml-0.5">*</span>
                 </label>
                 <textarea
@@ -92,10 +92,10 @@
                                 <th class="px-5 py-3 text-left">Cliente</th>
                                 <th class="px-5 py-3 text-left">Telefone</th>
                                 <th class="px-5 py-3 text-left">Cidade</th>
-                                <th class="px-5 py-3 text-left">Distância</th>
+                                <th class="px-5 py-3 text-left">{{ __('messages.distance') }}</th>
                                 <th class="px-5 py-3 text-left">Score Lead</th>
                                 <th class="px-5 py-3 text-left">Match IA</th>
-                                <th class="px-5 py-3 text-left">Por quê?</th>
+                                <th class="px-5 py-3 text-left">{{ __('messages.why') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-800/50">
@@ -149,8 +149,8 @@
                 </div>
             @else
                 <div class="py-16 text-center">
-                    <p class="text-gray-500 text-sm">Nenhum lead compatível encontrado com esse perfil.</p>
-                    <p class="text-gray-600 text-xs mt-1">Tente ajustar a descrição da empresa ou o tipo de cliente.</p>
+                    <p class="text-gray-500 text-sm">{{ __('messages.no_compatible_leads') }}</p>
+                    <p class="text-gray-600 text-xs mt-1">{{ __('messages.try_adjust_description') }}</p>
                 </div>
             @endif
         </div>

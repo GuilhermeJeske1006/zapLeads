@@ -52,11 +52,6 @@ class Empresa extends Model
         return $this->hasMany(Conversation::class);
     }
 
-    public function campaigns(): HasMany
-    {
-        return $this->hasMany(Campaign::class);
-    }
-
     public function sequences(): HasMany
     {
         return $this->hasMany(Sequence::class);

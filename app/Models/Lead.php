@@ -61,13 +61,6 @@ class Lead extends Model
         return $this->hasMany(Conversation::class);
     }
 
-    public function campaigns()
-    {
-        return $this->belongsToMany(Campaign::class, 'campaign_leads')
-            ->withPivot('status', 'sent_at')
-            ->withTimestamps();
-    }
-
     public const STATUSES = [
         'novo'        => ['label' => 'Novo',        'color' => 'gray'],
         'contatado'   => ['label' => 'Contatado',   'color' => 'blue'],

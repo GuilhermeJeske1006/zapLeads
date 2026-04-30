@@ -25,6 +25,9 @@ class FindInternetLeadsJob implements ShouldQueue
         public readonly string $tipoCliente,
         public readonly float $radiusKm,
         public readonly int $maxResults = 60,
+        public readonly ?float $customLat = null,
+        public readonly ?float $customLng = null,
+        public readonly string $customLocationLabel = '',
     ) {}
 
     public function handle(ProspectingService $prospecting): void
@@ -34,7 +37,16 @@ class FindInternetLeadsJob implements ShouldQueue
             return;
         }
 
-        $search = $prospecting->run($empresa, $this->descricaoEmpresa, $this->tipoCliente, $this->radiusKm, $this->maxResults);
+        $search = $prospecting->run(
+            $empresa,
+            $this->descricaoEmpresa,
+            $this->tipoCliente,
+            $this->radiusKm,
+            $this->maxResults,
+            $this->customLat,
+            $this->customLng,
+            $this->customLocationLabel,
+        );
         // keep a reference for monitoring/logging if needed
         ProspectingSearch::whereKey($search->id)->exists();
     }
