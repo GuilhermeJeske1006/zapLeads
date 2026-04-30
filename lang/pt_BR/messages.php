@@ -14,6 +14,7 @@ return [
     // Nav
     'nav_dashboard' => 'Dashboard',
     'nav_empresa' => 'Minha Empresa',
+    'nav_products' => 'Produtos',
     'nav_chat' => 'Chat',
     'nav_leads' => 'Leads',
     'nav_campaigns' => 'Campanhas',
@@ -48,11 +49,27 @@ return [
 
     // Products
     'products' => 'Produtos',
+    'manage_products' => 'Gerenciar produtos',
     'add_product' => 'Adicionar Produto',
     'edit_product' => 'Editar Produto',
     'no_products' => 'Nenhum produto cadastrado.',
     'no_products_yet' => 'Nenhum produto disponível.',
     'our_products' => 'Nossos Produtos',
+    'products_moved_notice' => 'O gerenciamento de produtos agora fica em uma tela dedicada, para ficar mais organizado.',
+    'products_screen_desc' => 'Cadastre, edite e organize os produtos que aparecem no seu catálogo digital.',
+    'how_it_works' => 'Como funciona',
+    'tips' => 'Dicas',
+    'where_it_appears' => 'Onde aparece',
+    'back_to_company' => 'Voltar para Empresa',
+    'products_help_add' => 'Clique em "Adicionar Produto" para cadastrar nome, preço, descrição e imagem.',
+    'products_help_edit' => 'Para editar, passe o mouse no produto e clique no ícone de lápis.',
+    'products_help_toggle' => 'A bolinha verde/cinza ativa ou desativa o produto (só ativos aparecem no catálogo).',
+    'products_help_delete' => 'Para excluir, passe o mouse e clique na lixeira.',
+    'products_help_active_only' => 'Produtos inativos ficam ocultos no catálogo público, mas continuam salvos aqui.',
+    'products_help_image' => 'Imagens aceitas: JPG/PNG/WEBP (até 2MB). Se faltar imagem, usamos um placeholder.',
+    'products_help_price' => 'Use o preço com decimais (ex: 199.90).',
+    'products_help_catalog' => 'Os produtos ativos são exibidos no seu catálogo público.',
+    'products_help_catalog_slug_hint' => 'Para ver o catálogo, primeiro preencha o "Slug (URL)" em Minha Empresa.',
 
     // Form fields
     'name' => 'Nome',
@@ -225,4 +242,10 @@ return [
 
     // Admin
     'no_users' => 'Nenhum usuário.',
+
+    // Image upload
+    'upload_logo' => 'Enviar logo',
+    'change_logo' => 'Alterar logo',
+    'upload_image' => 'Enviar imagem',
+    'change_image' => 'Alterar imagem',
 ];

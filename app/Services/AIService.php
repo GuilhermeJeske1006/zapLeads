@@ -62,6 +62,17 @@ class AIService
             ? trim($empresa->ai_persona)
             : 'Você é um atendente de loja virtual. Seja prestativo, cordial e objetivo.';
 
+        if ($empresa?->slug) {
+            $produtos = $empresa->produtos()->where('ativo', true)->get(['nome', 'preco']);
+
+            if ($produtos->isNotEmpty()) {
+                $catalogoUrl = route('catalogo.show', $empresa->slug);
+                $listaProdutos = $produtos->map(fn ($p) => "- {$p->nome} (R$ " . number_format($p->preco, 2, ',', '.') . ")")->join("\n");
+
+                $systemPrompt .= "\n\nCATÁLOGO DE PRODUTOS DISPONÍVEL:\n{$listaProdutos}\n\nURL DO CATÁLOGO: {$catalogoUrl}\n\nINSTRUÇÃO IMPORTANTE: Quando o cliente demonstrar interesse em produtos, pedir informações sobre o que você vende, ou quando for natural na conversa, sugira o catálogo digital com a URL acima. Exemplo: 'Você pode ver nosso catálogo completo em: {$catalogoUrl}'. Use o catálogo como recurso de vendas para engajar o lead.";
+            }
+        }
+
         try {
             $response = $this->client->messages->create(
                 model: $this->model,

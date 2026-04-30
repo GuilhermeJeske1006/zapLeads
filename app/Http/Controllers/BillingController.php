@@ -29,7 +29,9 @@ class BillingController extends Controller
         $invoices = [];
         try {
             // Pulls from Stripe API (Cashier). If Stripe keys are missing, it may throw.
-            $invoices = $user ? $user->invoices() : [];
+            $invoices = $user
+                ? $user->invoices()->filter(fn ($inv) => $inv->rawTotal() > 0)
+                : [];
         } catch (\Throwable $e) {
             Log::warning('Billing invoices fetch failed', ['error' => $e->getMessage()]);
             $invoices = [];

@@ -17,9 +17,9 @@
 
     {{-- Header --}}
     <header class="border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm">
-        <div class="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <img src="{{ asset('brand/logo.png') }}" alt="{{ config('app.name') }}" class=" h-8">
+                <img src="{{ asset('brand/logo.png') }}" alt="{{ config('app.name') }}" class="h-8">
                 <span class="font-semibold text-white">{{ config('app.name') }}</span>
             </div>
 
@@ -41,29 +41,27 @@
 
     {{-- Progress Bar --}}
     <div class="border-b border-gray-800 bg-gray-900/30">
-        <div class="max-w-2xl mx-auto px-6 py-5">
+        <div class="max-w-6xl mx-auto px-6 py-4">
             <div class="flex items-center justify-between mb-3">
                 <span class="text-xs text-gray-400 font-medium uppercase tracking-wider">{{ __('messages.account_setup') }}</span>
-                <span class="text-xs text-gray-500">Passo {{ $step }} de 4</span>
+                <span class="text-xs text-gray-500">Passo {{ min($step, 3) }} de 3</span>
             </div>
             <div class="flex gap-2">
-                <div class="h-1.5 flex-1 rounded-full {{ $step >= 1 ? 'bg-green-500' : 'bg-gray-800' }}"></div>
-                <div class="h-1.5 flex-1 rounded-full {{ $step >= 2 ? 'bg-green-500' : 'bg-gray-800' }}"></div>
-                <div class="h-1.5 flex-1 rounded-full {{ $step >= 3 ? 'bg-green-500' : 'bg-gray-800' }}"></div>
-                <div class="h-1.5 flex-1 rounded-full {{ $step >= 4 ? 'bg-green-500' : 'bg-gray-800' }}"></div>
+                <div class="h-1 flex-1 rounded-full {{ $step >= 1 ? 'bg-green-500' : 'bg-gray-800' }}"></div>
+                <div class="h-1 flex-1 rounded-full {{ $step >= 2 ? 'bg-green-500' : 'bg-gray-800' }}"></div>
+                <div class="h-1 flex-1 rounded-full {{ $step >= 3 ? 'bg-green-500' : 'bg-gray-800' }}"></div>
             </div>
             <div class="flex justify-between mt-2">
                 <span class="text-xs {{ $step >= 1 ? 'text-green-400' : 'text-gray-600' }}">Conta</span>
                 <span class="text-xs {{ $step >= 2 ? 'text-green-400' : 'text-gray-600' }}">Empresa</span>
-                <span class="text-xs {{ $step >= 3 ? 'text-green-400' : 'text-gray-600' }}">Plano</span>
-                <span class="text-xs {{ $step >= 4 ? 'text-green-400' : 'text-gray-600' }}">Pagamento</span>
+                <span class="text-xs {{ $step >= 3 ? 'text-green-400' : 'text-gray-600' }}">Pagamento</span>
             </div>
         </div>
     </div>
 
     {{-- Content --}}
-    <div class="flex-1 flex flex-col items-center justify-center px-6 py-12">
-        <div class="w-full max-w-xl">
+    <div class="flex-1 flex flex-col items-center justify-center px-6 py-10">
+        <div class="w-full max-w-5xl">
             {{ $slot }}
         </div>
     </div>

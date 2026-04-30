@@ -1,45 +1,79 @@
-<x-onboarding-layout :step="4">
+<x-onboarding-layout :step="3">
     @push('head')
     <script src="https://js.stripe.com/v3/"></script>
     @endpush
 
-    <div>
-        <div class="text-center mb-8">
-            <h2 class="text-2xl font-bold text-white mb-2">{{ __('messages.payment_data') }}</h2>
-            <p class="text-gray-400 text-sm">
-                {{ __('messages.trial_starts_now', ['days' => $plan['trial_days']]) }}
-            </p>
+    <div class="grid grid-cols-1 lg:grid-cols-2 shadow-2xl rounded-2xl overflow-hidden">
+
+        {{-- Left: plan summary --}}
+        <div class="flex flex-col bg-gray-800/40 border border-gray-800 lg:border-r-0 lg:rounded-r-none rounded-2xl p-10">
+            <div class="mb-8">
+                <span class="inline-block bg-green-500/15 text-green-400 text-xs font-semibold px-3 py-1.5 rounded-full uppercase tracking-wider mb-5">
+                    {{ __('messages.free_for_x_days', ['days' => $plan['trial_days']]) }}
+                </span>
+                <h2 class="text-2xl font-bold text-white mb-1">{{ $plan['name'] }}</h2>
+                <div class="flex items-baseline gap-1 mt-4">
+                    <span class="text-gray-400 text-sm">R$</span>
+                    <span class="text-5xl font-bold text-white">{{ number_format($plan['price_brl'] / 100, 0, ',', '.') }}</span>
+                    <span class="text-gray-400 text-sm">{{ __('messages.per_month') }}</span>
+                </div>
+                <p class="text-green-400 text-xs mt-2">{{ __('messages.after_trial_text') }}</p>
+            </div>
+
+            <ul class="space-y-3 flex-1">
+                @foreach($plan['features'] as $feature)
+                <li class="flex items-center gap-3 text-sm text-gray-300">
+                    <svg class="w-4 h-4 text-green-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    {{ $feature }}
+                </li>
+                @endforeach
+            </ul>
+
+            <div class="mt-10 pt-6 border-t border-gray-700/50">
+                <div class="flex items-center gap-6 text-xs text-gray-500">
+                    <div class="flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                        </svg>
+                        {{ __('messages.secure_payment') }}
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                        Powered by Stripe
+                    </div>
+                </div>
+                <p class="text-xs text-gray-600 mt-3">{{ __('messages.cancel_anytime') }}</p>
+            </div>
         </div>
 
-        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-8">
-
-            {{-- Plan Summary --}}
-            <div class="flex items-center justify-between p-4 bg-gray-800/50 rounded-xl mb-6 border border-gray-700">
-                <div>
-                    <p class="text-sm font-medium text-white">{{ $plan['name'] }}</p>
-                    <p class="text-xs text-green-400 mt-0.5">{{ __('messages.free_for_x_days', ['days' => $plan['trial_days']]) }}</p>
-                </div>
-                <div class="text-right">
-                    <p class="text-lg font-bold text-white">R$ {{ number_format($plan['price_brl'] / 100, 2, ',', '.') }}/mês</p>
-                    <p class="text-xs text-gray-500">{{ __('messages.after_trial_text') }}</p>
-                </div>
+        {{-- Right: payment form --}}
+        <div class="bg-gray-900 border border-gray-800 rounded-r-2xl p-10">
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-white mb-2">{{ __('messages.payment_data') }}</h2>
+                <p class="text-gray-400 text-sm">
+                    {{ __('messages.trial_starts_now', ['days' => $plan['trial_days']]) }}
+                </p>
             </div>
 
             @if ($errors->any())
-            <div class="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 mb-5">
+            <div class="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 mb-6">
                 <p class="text-red-400 text-sm">{{ $errors->first() }}</p>
             </div>
             @endif
 
-            <form id="payment-form" method="POST" action="{{ route('onboarding.pagamento.processar') }}">
+            <form id="payment-form" method="POST" action="{{ route('onboarding.pagamento.processar') }}" class="space-y-6">
                 @csrf
                 <input type="hidden" name="payment_method" id="payment-method-input">
 
-                <div class="mb-5">
+                <div>
                     <label class="block text-sm font-medium text-gray-300 mb-2">{{ __('messages.card_data') }}</label>
                     <div
                         id="card-element"
-                        class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 min-h-[44px]"
+                        class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 min-h-11"
                     ></div>
                     <div id="payment-errors" class="text-red-400 text-xs mt-2 hidden"></div>
                 </div>
@@ -53,26 +87,12 @@
                     <span id="btn-loading" class="hidden">Processando...</span>
                 </button>
 
-                <p class="text-center text-xs text-gray-500 mt-4">
+                <p class="text-center text-xs text-gray-500">
                     {{ __('messages.billing_after_trial', ['price' => number_format($plan['price_brl'] / 100, 2, ',', '.'), 'days' => $plan['trial_days']]) }}
                 </p>
             </form>
         </div>
 
-        <div class="mt-6 flex items-center justify-center gap-6 text-xs text-gray-500">
-            <div class="flex items-center gap-1.5">
-                <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                </svg>
-                {{ __('messages.secure_payment') }}
-            </div>
-            <div class="flex items-center gap-1.5">
-                <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                </svg>
-                Powered by Stripe
-            </div>
-        </div>
     </div>
 
     @push('scripts')

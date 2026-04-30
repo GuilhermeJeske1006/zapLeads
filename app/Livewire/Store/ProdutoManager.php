@@ -20,6 +20,7 @@ class ProdutoManager extends Component
     public string $preco = '';
     public string $descricao = '';
     public $imagem = null;
+    public string $currentImageUrl = '';
     public bool $ativo = true;
 
     protected function rules(): array
@@ -36,6 +37,7 @@ class ProdutoManager extends Component
     public function openCreate(): void
     {
         $this->reset('nome', 'preco', 'descricao', 'imagem', 'ativo', 'editingId');
+        $this->currentImageUrl = '';
         $this->ativo = true;
         $this->showModal = true;
     }
@@ -48,6 +50,7 @@ class ProdutoManager extends Component
         $this->preco = $produto->preco;
         $this->descricao = $produto->descricao ?? '';
         $this->ativo = $produto->ativo;
+        $this->currentImageUrl = $produto->imagem_url;
         $this->showModal = true;
     }
 

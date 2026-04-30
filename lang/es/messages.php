@@ -14,6 +14,7 @@ return [
     // Nav
     'nav_dashboard' => 'Panel',
     'nav_empresa' => 'Mi Empresa',
+    'nav_products' => 'Productos',
     'nav_chat' => 'Chat',
     'nav_leads' => 'Contactos',
     'nav_campaigns' => 'Campañas',
@@ -48,11 +49,27 @@ return [
 
     // Products
     'products' => 'Productos',
+    'manage_products' => 'Gestionar productos',
     'add_product' => 'Agregar Producto',
     'edit_product' => 'Editar Producto',
     'no_products' => 'Ningún producto registrado.',
     'no_products_yet' => 'Ningún producto disponible.',
     'our_products' => 'Nuestros Productos',
+    'products_moved_notice' => 'La gestión de productos ahora está en una pantalla dedicada para mantener todo más organizado.',
+    'products_screen_desc' => 'Registra, edita y organiza los productos que aparecen en tu catálogo digital.',
+    'how_it_works' => 'Cómo funciona',
+    'tips' => 'Consejos',
+    'where_it_appears' => 'Dónde aparece',
+    'back_to_company' => 'Volver a Empresa',
+    'products_help_add' => 'Haz clic en "Agregar Producto" para registrar nombre, precio, descripción e imagen.',
+    'products_help_edit' => 'Para editar, pasa el mouse sobre el producto y haz clic en el icono de lápiz.',
+    'products_help_toggle' => 'El punto verde/gris activa o desactiva el producto (solo los activos aparecen en el catálogo).',
+    'products_help_delete' => 'Para eliminar, pasa el mouse y haz clic en la papelera.',
+    'products_help_active_only' => 'Los productos inactivos quedan ocultos en el catálogo público, pero siguen guardados aquí.',
+    'products_help_image' => 'Imágenes aceptadas: JPG/PNG/WEBP (hasta 2MB). Si no hay imagen, usamos un placeholder.',
+    'products_help_price' => 'Usa el precio con decimales (ej: 199.90).',
+    'products_help_catalog' => 'Los productos activos se muestran en tu catálogo público.',
+    'products_help_catalog_slug_hint' => 'Para ver el catálogo, primero completa el "Slug (URL)" en Mi Empresa.',
 
     // Form fields
     'name' => 'Nombre',
@@ -225,4 +242,10 @@ return [
 
     // Admin
     'no_users' => 'Ningún usuario.',
+
+    // Image upload
+    'upload_logo' => 'Subir logo',
+    'change_logo' => 'Cambiar logo',
+    'upload_image' => 'Subir imagen',
+    'change_image' => 'Cambiar imagen',
 ];

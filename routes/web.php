@@ -9,6 +9,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicCatalogoController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\BillingController;
+use App\Http\Controllers\ProdutosController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Admin\SubscriptionsController as AdminSubscriptionsController;
 use App\Livewire\Onboarding\EmpresaStep;
@@ -61,6 +62,8 @@ Route::middleware(['auth', 'set.locale', 'onboarding'])->group(function () {
 
     Route::get('/empresa', [EmpresaController::class, 'edit'])->name('empresa.edit');
     Route::put('/empresa', [EmpresaController::class, 'update'])->name('empresa.update');
+
+    Route::get('/produtos', [ProdutosController::class, 'index'])->name('produtos.index');
 
     Route::get('/assinatura', [BillingController::class, 'index'])->name('billing.index');
     Route::post('/assinatura/cancelar', [BillingController::class, 'cancel'])->name('billing.cancel');

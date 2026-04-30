@@ -58,9 +58,16 @@
         </div>
 
         <div class="bg-gray-900/40 border border-gray-800 rounded-2xl p-6">
-            <h2 class="text-lg font-semibold text-white mb-4">{{ __('messages.products') }}</h2>
-            <livewire:store.produto-manager :empresa="$empresa" />
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-white">{{ __('messages.products') }}</h2>
+                    <p class="text-sm text-gray-500 mt-1">{{ __('messages.products_moved_notice') }}</p>
+                </div>
+                <a href="{{ route('produtos.index') }}"
+                   class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-xl transition-colors">
+                    {{ __('messages.manage_products') }}
+                </a>
+            </div>
         </div>
     </div>
 </x-app-layout>
-

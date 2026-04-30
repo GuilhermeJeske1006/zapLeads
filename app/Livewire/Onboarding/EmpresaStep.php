@@ -114,7 +114,7 @@ class EmpresaStep extends Component
             'longitude' => $this->longitude,
         ]);
 
-        $this->redirect(route('onboarding.plano'), navigate: true);
+        $this->redirect(route('onboarding.pagamento'), navigate: true);
     }
 
     public function render()
