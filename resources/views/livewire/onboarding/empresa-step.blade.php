@@ -3,14 +3,14 @@
     {{-- Left: form --}}
     <div class="lg:col-span-3 bg-gray-900 border border-gray-800 lg:border-r-0 lg:rounded-r-none rounded-2xl p-10">
         <div class="mb-8">
-            <h2 class="text-2xl font-bold text-white mb-2">Dados da sua empresa</h2>
+            <h2 class="text-2xl font-bold text-white mb-2">{{ __('messages.company_data') }}</h2>
             <p class="text-gray-400 text-sm">{{ __('messages.onboarding_catalog_hint') }}</p>
         </div>
 
         <form wire:submit="salvar" class="space-y-5">
             <div>
                 <label class="block text-sm font-medium text-gray-300 mb-1.5">
-                    Nome da empresa <span class="text-red-400">*</span>
+                    {{ __('messages.company_name') }} <span class="text-red-400">*</span>
                 </label>
                 <input
                     wire:model="nome"
@@ -47,11 +47,12 @@
                     selectCountry(key) {
                         this.country = key;
                         this.open = false;
+                        $wire.set('country', key);
                         this.$nextTick(() => { this.$refs.wpp.value = this.format(this.$refs.wpp.value); });
                     },
                     init() {
                         let digits = ($wire.whatsapp || '').replace(/\D/g, '');
-                        if (digits.startsWith('54')) this.country = 'AR';
+                        if (digits.startsWith('54')) { this.country = 'AR'; $wire.set('country', 'AR'); }
                         this.$nextTick(() => { this.$refs.wpp.value = this.format(this.$refs.wpp.value); });
                     }
                 }"
@@ -117,7 +118,7 @@
 
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-1.5">Cidade</label>
+                    <label class="block text-sm font-medium text-gray-300 mb-1.5">{{ __('messages.your_city') }}</label>
                     <input
                         wire:model="cidade"
                         type="text"
@@ -162,8 +163,8 @@
                 wire:loading.attr="disabled"
                 class="w-full bg-green-600 hover:bg-green-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors"
             >
-                <span wire:loading.remove>Continuar →</span>
-                <span wire:loading>Salvando...</span>
+                <span wire:loading.remove>{{ __('messages.continue_arrow') }}</span>
+                <span wire:loading>{{ __('messages.saving') }}</span>
             </button>
         </form>
     </div>

@@ -52,8 +52,8 @@
         </div>
 
         <div class="bg-gray-900/40 border border-gray-800 rounded-2xl p-6">
-            <h2 class="text-lg font-semibold text-white mb-4">{{ __('messages.whatsapp_channels_title') }}</h2>
-            <p class="text-sm text-gray-500 mb-4">{{ __('messages.whatsapp_channel_desc') }}</p>
+            <h2 class="text-lg font-semibold text-white mb-1">Conectar WhatsApp</h2>
+            <p class="text-sm text-gray-500 mb-5">Gerencie os números WhatsApp usados para envio e recebimento de mensagens com seus leads.</p>
             <livewire:whatsapp-channels :empresa-id="$empresa->id" />
         </div>
 

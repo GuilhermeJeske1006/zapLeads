@@ -96,6 +96,39 @@ class WhatsAppService
         return $this->sendTextMessage($phone, $message, $empresaId, $channel);
     }
 
+    public function registerWebhook(string $numero): array
+    {
+        $phone = preg_replace('/^whatsapp:/i', '', trim($numero));
+        if (!str_starts_with($phone, '+')) {
+            $phone = '+' . ltrim($phone, '+');
+        }
+
+        $webhookUrl = route('webhook.twilio');
+
+        try {
+            $numbers = $this->client->incomingPhoneNumbers->read(['phoneNumber' => $phone]);
+
+            if (empty($numbers)) {
+                Log::warning('registerWebhook: number not found in Twilio account', ['numero' => $phone]);
+                return ['success' => false, 'error' => "Número {$phone} não encontrado na conta Twilio."];
+            }
+
+            $sid = $numbers[0]->sid;
+
+            $this->client->incomingPhoneNumbers($sid)->update([
+                'smsUrl'    => $webhookUrl,
+                'smsMethod' => 'POST',
+            ]);
+
+            Log::info('registerWebhook: webhook configured', ['numero' => $phone, 'url' => $webhookUrl, 'sid' => $sid]);
+
+            return ['success' => true, 'webhook_url' => $webhookUrl];
+        } catch (\Throwable $e) {
+            Log::error('registerWebhook failed', ['numero' => $phone, 'error' => $e->getMessage()]);
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
     private function resolveFrom(?WhatsAppChannel $channel): string
     {
         $from = (string) ($channel?->numero ?: config('twilio.from'));
@@ -129,10 +162,19 @@ class WhatsAppService
     private function normalizePhone(string $phone): string
     {
         $phone = preg_replace('/\D/', '', $phone);
-        if (!str_starts_with($phone, '55') && strlen($phone) <= 11) {
-            $phone = '55' . $phone;
+
+        // Already has a known country code — keep it.
+        if (str_starts_with($phone, '55') || str_starts_with($phone, '54')) {
+            return '+' . $phone;
         }
-        return '+' . $phone;
+
+        // Argentina: 10-digit numbers (2-digit area + 8-digit local).
+        if (strlen($phone) === 10) {
+            return '+54' . $phone;
+        }
+
+        // Brazil: 10 or 11 digits (2-digit DDD + 8 or 9-digit local).
+        return '+55' . $phone;
     }
 
     private function findLeadByPhone(string $normalizedPhone): ?Lead

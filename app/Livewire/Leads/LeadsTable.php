@@ -6,6 +6,7 @@ use App\Models\Lead;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Empresa;
+use App\Models\WhatsAppChannel;
 use App\Jobs\SendWhatsAppMessageJob;
 use App\Services\AIService;
 use App\Services\GeoService;
@@ -24,6 +25,12 @@ class LeadsTable extends Component
 
     public bool $showModal = false;
     public ?array $modalLead = null;
+
+    public bool $showNoChannelModal = false;
+    public bool $showSelectChannelModal = false;
+    public ?int $pendingLeadId = null;
+    public array $channels = [];
+    public ?int $selectedChannelId = null;
 
     public bool $showAddModal = false;
     public string $addNome = '';
@@ -179,7 +186,7 @@ class LeadsTable extends Component
         $this->dispatch('toast', type: 'success', message: __('messages.leads_deleted', ['count' => $count]));
     }
 
-    public function enviarMensagemIA(int $leadId, AIService $ai): void
+    public function enviarMensagemIA(int $leadId): void
     {
         $lead = $this->empresa->leads()->findOrFail($leadId);
 
@@ -193,10 +200,68 @@ class LeadsTable extends Component
             return;
         }
 
+        $channels = $this->empresa->whatsappChannels()->where('ativo', true)->get();
+
+        if ($channels->isEmpty()) {
+            $this->showNoChannelModal = true;
+            return;
+        }
+
+        if ($channels->count() > 1) {
+            $this->pendingLeadId = $leadId;
+            $this->channels = $channels->map(fn ($c) => ['id' => $c->id, 'nome' => $c->nome, 'numero' => $c->numero])->toArray();
+            $this->selectedChannelId = $channels->firstWhere('is_default', true)?->id ?? $channels->first()->id;
+            $this->showSelectChannelModal = true;
+            return;
+        }
+
+        $this->doEnviarMensagemIA($leadId, $channels->first());
+    }
+
+    public function confirmarCanalEEnviar(): void
+    {
+        if (!$this->pendingLeadId || !$this->selectedChannelId) {
+            return;
+        }
+
+        $channel = $this->empresa->whatsappChannels()->find($this->selectedChannelId);
+        if (!$channel) {
+            return;
+        }
+
+        $leadId = $this->pendingLeadId;
+        $this->showSelectChannelModal = false;
+        $this->pendingLeadId = null;
+        $this->channels = [];
+
+        $this->doEnviarMensagemIA($leadId, $channel);
+    }
+
+    public function fecharNoChannelModal(): void
+    {
+        $this->showNoChannelModal = false;
+    }
+
+    public function fecharSelectChannelModal(): void
+    {
+        $this->showSelectChannelModal = false;
+        $this->pendingLeadId = null;
+        $this->channels = [];
+    }
+
+    private function doEnviarMensagemIA(int $leadId, WhatsAppChannel $channel): void
+    {
+        $ai = app(AIService::class);
+        $lead = $this->empresa->leads()->findOrFail($leadId);
+
         $conversation = Conversation::firstOrCreate(
             ['empresa_id' => $this->empresa->id, 'telefone' => $lead->telefone],
-            ['lead_id' => $lead->id, 'nome_contato' => $lead->nome, 'status' => 'active']
+            ['lead_id' => $lead->id, 'nome_contato' => $lead->nome, 'status' => 'active', 'whatsapp_channel_id' => $channel->id]
         );
+
+        if (!$conversation->whatsapp_channel_id) {
+            $conversation->update(['whatsapp_channel_id' => $channel->id]);
+        }
 
         $text = $ai->gerarPrimeiraMensagemProspeccao($this->empresa, $lead);
         if (!trim($text)) {

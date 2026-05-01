@@ -4,12 +4,15 @@ namespace App\Livewire;
 
 use App\Models\Empresa;
 use App\Models\WhatsAppChannel;
+use App\Services\WhatsAppService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class WhatsAppChannels extends Component
 {
     public int $empresaId;
+
+    public ?string $mode = null; // null = selection screen, 'manual', 'byop'
 
     public string $nome   = '';
     public string $numero = '';
@@ -30,6 +33,18 @@ class WhatsAppChannels extends Component
     protected $messages = [
         'numero.regex' => 'Formato: whatsapp:+5511999990000',
     ];
+
+    public function selectMode(string $mode): void
+    {
+        $this->mode = $mode;
+        $this->resetForm();
+    }
+
+    public function backToSelection(): void
+    {
+        $this->mode = null;
+        $this->resetForm();
+    }
 
     public function save(): void
     {
@@ -59,6 +74,15 @@ class WhatsAppChannels extends Component
             }
         });
 
+        $result = app(WhatsAppService::class)->registerWebhook($this->numero);
+
+        if ($result['success']) {
+            session()->flash('success', 'Canal salvo e webhook Twilio configurado em ' . $result['webhook_url']);
+        } else {
+            session()->flash('warning', 'Canal salvo, mas webhook Twilio não configurado: ' . $result['error']);
+        }
+
+        $this->mode = null;
         $this->resetForm();
     }
 
@@ -73,6 +97,7 @@ class WhatsAppChannels extends Component
         $this->numero    = $channel->numero;
         $this->isDefault = $channel->is_default;
         $this->ativo     = $channel->ativo;
+        $this->mode      = 'manual';
     }
 
     public function delete(int $id): void
@@ -103,11 +128,6 @@ class WhatsAppChannels extends Component
         $channel->update(['ativo' => !$channel->ativo]);
     }
 
-    public function cancelEdit(): void
-    {
-        $this->resetForm();
-    }
-
     private function resetForm(): void
     {
         $this->editingId = null;
@@ -116,6 +136,12 @@ class WhatsAppChannels extends Component
         $this->isDefault = false;
         $this->ativo     = true;
         $this->resetValidation();
+    }
+
+    public function cancelEdit(): void
+    {
+        $this->mode = null;
+        $this->resetForm();
     }
 
     public function render()

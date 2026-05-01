@@ -15,8 +15,17 @@ class PlanoStep extends Component
 
     public function render()
     {
-        return view('livewire.onboarding.plano-step', [
-            'plan' => config('plans'),
-        ]);
+        $empresa = auth()->user()->empresa;
+        $currency = $empresa?->currency ?? 'BRL';
+        $plan = config('plans');
+
+        $plan['currency']        = $currency;
+        $plan['currency_symbol'] = $empresa?->currencySymbol() ?? 'R$';
+        $plan['price_display']   = $currency === 'ARS' ? $plan['price_ars'] : $plan['price_brl'];
+        $plan['stripe_price']    = $currency === 'ARS'
+            ? ($plan['stripe_price_id_ars'] ?? $plan['stripe_price_id'])
+            : $plan['stripe_price_id'];
+
+        return view('livewire.onboarding.plano-step', compact('plan'));
     }
 }

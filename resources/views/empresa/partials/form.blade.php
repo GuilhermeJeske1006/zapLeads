@@ -8,11 +8,96 @@
         @error('nome') <p class="text-red-400 text-xs mt-1">{{ $message }}</p> @enderror
     </div>
 
-    <div>
+    <div
+        x-data="{
+            open: false,
+            country: 'BR',
+            countries: {
+                BR: { code: '55', flag: '🇧🇷', label: 'Brasil',    dddLen: 2, numLen: 9, split: 5 },
+                AR: { code: '54', flag: '🇦🇷', label: 'Argentina', dddLen: 2, numLen: 8, split: 4 }
+            },
+            get cfg() { return this.countries[this.country]; },
+            format(val) {
+                let digits = val.replace(/\D/g, '');
+                if (digits.startsWith(this.cfg.code)) digits = digits.substring(this.cfg.code.length);
+                digits = digits.substring(0, this.cfg.dddLen + this.cfg.numLen);
+                if (!digits) return '';
+                let r = '+' + this.cfg.code;
+                r += ' (' + digits.substring(0, Math.min(this.cfg.dddLen, digits.length));
+                if (digits.length > this.cfg.dddLen) {
+                    r += ') ' + digits.substring(this.cfg.dddLen, this.cfg.dddLen + this.cfg.split);
+                    if (digits.length > this.cfg.dddLen + this.cfg.split)
+                        r += '-' + digits.substring(this.cfg.dddLen + this.cfg.split);
+                }
+                return r;
+            },
+            selectCountry(key) {
+                this.country = key;
+                this.open = false;
+                this.$nextTick(() => { this.$refs.wpp.value = this.format(this.$refs.wpp.value); });
+            },
+            init() {
+                let digits = ('{{ old('whatsapp', $empresa?->whatsapp) }}').replace(/\D/g, '');
+                if (digits.startsWith('54')) this.country = 'AR';
+                this.$nextTick(() => { this.$refs.wpp.value = this.format(this.$refs.wpp.value); });
+            }
+        }"
+        @click.outside="open = false"
+        class="relative"
+    >
         <label class="block text-xs font-medium text-gray-400 mb-1.5">{{ __('messages.whatsapp') }} *</label>
-        <input name="whatsapp" type="tel" required value="{{ old('whatsapp', $empresa?->whatsapp) }}"
-               placeholder="+55 11 99999-9999"
-               class="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-200 focus:outline-none focus:border-green-500 transition-colors">
+
+        <div class="flex">
+            {{-- Country button --}}
+            <button
+                type="button"
+                @click="open = !open"
+                class="flex items-center gap-1.5 shrink-0 px-3 py-2.5 bg-gray-800 border border-gray-700 border-r-0 rounded-l-xl text-sm text-gray-200 hover:bg-gray-700 transition-colors"
+            >
+                <span x-text="cfg.flag"></span>
+                <span class="text-gray-400 text-xs" x-text="'+' + cfg.code"></span>
+                <svg class="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+
+            {{-- Dropdown --}}
+            <div
+                x-show="open"
+                x-transition:enter="transition ease-out duration-100"
+                x-transition:enter-start="opacity-0 scale-95"
+                x-transition:enter-end="opacity-100 scale-100"
+                x-transition:leave="transition ease-in duration-75"
+                x-transition:leave-start="opacity-100 scale-100"
+                x-transition:leave-end="opacity-0 scale-95"
+                class="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-20 min-w-44"
+            >
+                <template x-for="(c, key) in countries" :key="key">
+                    <button
+                        type="button"
+                        @click="selectCountry(key)"
+                        class="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-gray-200 hover:bg-gray-700 first:rounded-t-lg last:rounded-b-lg transition-colors"
+                        :class="{ 'bg-gray-700/60': country === key }"
+                    >
+                        <span x-text="c.flag"></span>
+                        <span x-text="c.label"></span>
+                        <span class="text-gray-500 text-xs ml-auto" x-text="'+' + c.code"></span>
+                    </button>
+                </template>
+            </div>
+
+            {{-- Input --}}
+            <input
+                x-ref="wpp"
+                name="whatsapp"
+                x-on:input="$event.target.value = format($event.target.value)"
+                type="tel"
+                required
+                :placeholder="'+' + cfg.code + ' (11) ' + (cfg.numLen === 9 ? '99999-9999' : '9999-9999')"
+                class="flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded-r-xl px-4 py-2.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-colors"
+            >
+        </div>
+
         @error('whatsapp') <p class="text-red-400 text-xs mt-1">{{ $message }}</p> @enderror
     </div>
 

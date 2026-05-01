@@ -13,6 +13,7 @@ class EmpresaStep extends Component
     public string $whatsapp = '';
     public string $cidade = '';
     public string $endereco = '';
+    public string $country = 'BR';
     public ?float $latitude = null;
     public ?float $longitude = null;
     public ?string $locationStatus = null;
@@ -26,6 +27,7 @@ class EmpresaStep extends Component
             $this->whatsapp = $empresa->whatsapp ?? '';
             $this->cidade = $empresa->cidade ?? '';
             $this->endereco = $empresa->endereco ?? '';
+            $this->country = $empresa->country ?? 'BR';
             $this->latitude = $empresa->latitude !== null ? (float) $empresa->latitude : null;
             $this->longitude = $empresa->longitude !== null ? (float) $empresa->longitude : null;
         }
@@ -95,22 +97,30 @@ class EmpresaStep extends Component
     public function salvar(): void
     {
         $this->validate([
-            'nome' => ['required', 'string', 'max:255'],
+            'nome'    => ['required', 'string', 'max:255'],
             'whatsapp' => ['required', 'string', 'max:30'],
-            'cidade' => ['nullable', 'string', 'max:100'],
+            'country' => ['required', 'in:BR,AR'],
+            'cidade'  => ['nullable', 'string', 'max:100'],
             'endereco' => ['nullable', 'string', 'max:255'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ]);
 
+        $defaults = \App\Models\Empresa::$countryDefaults[$this->country]
+            ?? \App\Models\Empresa::$countryDefaults['BR'];
+
         $user = auth()->user();
         $empresa = $user->empresa()->firstOrCreate([]);
         $empresa->update([
-            'nome' => $this->nome,
-            'whatsapp' => $this->whatsapp,
-            'cidade' => $this->cidade,
-            'endereco' => $this->endereco,
-            'latitude' => $this->latitude,
+            'nome'      => $this->nome,
+            'whatsapp'  => $this->whatsapp,
+            'cidade'    => $this->cidade,
+            'endereco'  => $this->endereco,
+            'country'   => $this->country,
+            'timezone'  => $defaults['timezone'],
+            'currency'  => $defaults['currency'],
+            'locale'    => $defaults['locale'],
+            'latitude'  => $this->latitude,
             'longitude' => $this->longitude,
         ]);
 

@@ -1,6 +1,6 @@
 <div>
     <div class="text-center mb-8">
-        <h2 class="text-2xl font-bold text-white mb-2">Escolha seu plano</h2>
+        <h2 class="text-2xl font-bold text-white mb-2">{{ __('messages.choose_plan') }}</h2>
         <p class="text-gray-400 text-sm">{{ __('messages.free_for_x_days', ['days' => $plan['trial_days']]) }}, sem cobrar nada agora.</p>
     </div>
 
@@ -14,8 +14,8 @@
         <div class="text-center mb-8">
             <h3 class="text-xl font-bold text-white mb-1">{{ $plan['name'] }}</h3>
             <div class="flex items-baseline justify-center gap-1 mt-4">
-                <span class="text-gray-400 text-sm">R$</span>
-                <span class="text-5xl font-bold text-white">{{ number_format($plan['price_brl'] / 100, 0, ',', '.') }}</span>
+                <span class="text-gray-400 text-sm">{{ $plan['currency_symbol'] }}</span>
+                <span class="text-5xl font-bold text-white">{{ number_format($plan['price_display'] / 100, 0, ',', '.') }}</span>
                 <span class="text-gray-400 text-sm">{{ __('messages.per_month') }}</span>
             </div>
             <p class="text-green-400 text-sm mt-2">{{ __('messages.free_for_x_days', ['days' => $plan['trial_days']]) }}</p>
@@ -38,7 +38,7 @@
             class="w-full bg-green-600 hover:bg-green-500 disabled:opacity-60 text-white font-semibold py-3 rounded-lg transition-colors"
         >
             <span wire:loading.remove>{{ __('messages.start_free_trial') }}</span>
-            <span wire:loading>Aguarde...</span>
+            <span wire:loading>{{ __('messages.please_wait') }}</span>
         </button>
 
         <p class="text-center text-xs text-gray-500 mt-4">{{ __('messages.cancel_anytime') }}</p>
@@ -49,7 +49,7 @@
             <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
             </svg>
-            Pagamento seguro
+            {{ __('messages.secure_payment') }}
         </div>
         <div class="flex items-center gap-1.5">
             <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

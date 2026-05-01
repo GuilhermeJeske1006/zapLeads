@@ -248,4 +248,15 @@ return [
     'change_logo' => 'Alterar logo',
     'upload_image' => 'Enviar imagem',
     'change_image' => 'Alterar imagem',
+
+    // Onboarding — plan step
+    'choose_plan'   => 'Escolha seu plano',
+    'please_wait'   => 'Aguarde...',
+
+    // Onboarding — empresa step
+    'continue_arrow' => 'Continuar →',
+    'saving'         => 'Salvando...',
+    'company_data'   => 'Dados da sua empresa',
+    'company_name'   => 'Nome da empresa',
+    'your_city'      => 'Cidade',
 ];
