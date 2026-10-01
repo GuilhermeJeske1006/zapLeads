@@ -111,6 +111,31 @@ class OutreachQueueTest extends TestCase
         $this->assertSame('Oi! Texto novo.', $draft->fresh()->texto_final);
     }
 
+    public function test_user_picks_an_angle_and_sees_the_fact_it_uses(): void
+    {
+        $draft = $this->draft($this->lead('Studio Bella', '(47) 99280-1006'));
+        $draft->update([
+            'variante_escolhida' => 'dor_do_segmento',
+            'dor_hipotese'       => 'Clientes desistem quando ninguém responde',
+            'variantes'          => [
+                ['angulo' => 'observacao', 'mensagem' => 'Vi a nota 4,8 de vocês. Seria absurdo te mostrar uma ideia?', 'gancho_usado' => 'Nota 4,8 no Google'],
+                ['angulo' => 'dor_do_segmento', 'mensagem' => 'Oi! Vocês ainda marcam horário só pelo WhatsApp?', 'gancho_usado' => null],
+                ['angulo' => 'roteamento', 'mensagem' => 'É com você que falo sobre a agenda?', 'gancho_usado' => null],
+            ],
+        ]);
+
+        Livewire::test(OutreachQueue::class, ['empresa' => $this->empresa])
+            ->assertSee(__('messages.outreach_angle_roteamento'))
+            ->assertSee('Clientes desistem quando ninguém responde')
+            ->call('escolherVariante', $draft->id, 'observacao')
+            ->assertSee('Nota 4,8 no Google')
+            ->call('escolherVariante', $draft->id, 'inventado');
+
+        $draft->refresh();
+        $this->assertSame('observacao', $draft->variante_escolhida);
+        $this->assertSame('Vi a nota 4,8 de vocês. Seria absurdo te mostrar uma ideia?', $draft->texto_final);
+    }
+
     private function draft(Lead $lead): OutreachDraft
     {
         return OutreachDraft::create([

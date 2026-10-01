@@ -246,6 +246,10 @@ return [
     'template_field_lead_cidade' => 'Cidade do lead',
     'template_field_empresa_nome' => 'Nome da sua empresa',
     'template_field_mensagem' => 'Mensagem revisada (em uma linha)',
+    'template_field_mensagem_sem_saudacao' => 'Mensagem revisada, sem a saudação do início',
+    'template_field_abertura' => 'Abertura da mensagem (o que vem antes da pergunta)',
+    'template_field_pergunta' => 'Pergunta da mensagem (e o que vem depois dela)',
+    'template_field_contato_nome' => 'Primeiro nome do decisor (só quando a fonte é confiável)',
     'daily_prospecting_limit' => 'Limite diário de abordagens',
     'daily_prospecting_limit_hint' => 'Abordagens pela API acima disso ficam para o próximo dia útil. Comece com pouco em números novos.',
     'daily_limit_short' => 'até :limit abordagens/dia',
@@ -406,4 +410,17 @@ return [
     'sales_excluidos_placeholder' => 'Ex.: franquias, redes com mais de 5 unidades',
     'sales_excluidos_hint' => 'Leads desses segmentos recebem score baixo e saem das buscas.',
     'sales_saved' => 'Perfil de vendas salvo. Use "Recalcular scores" em Leads para aplicá-lo aos leads que você já tem.',
+
+    // Abordagem v2 e cadência
+    'outreach_angles' => 'Ângulo da mensagem',
+    'outreach_angle_observacao' => 'Observação',
+    'outreach_angle_dor_do_segmento' => 'Dor do segmento',
+    'outreach_angle_roteamento' => 'Roteamento',
+    'outreach_follow_up_step' => 'Follow-up :step de :total · :goal',
+    'outreach_goal_valor' => 'valor',
+    'outreach_goal_novo_angulo' => 'novo ângulo',
+    'outreach_goal_encerramento' => 'encerramento',
+    'outreach_fact_used' => 'Fato usado',
+    'outreach_pain_hypothesis' => 'Hipótese de dor',
+    'outreach_he_replied_hint' => 'O lead respondeu fora do sistema (no seu WhatsApp): os follow-ups dele param.',
 ];

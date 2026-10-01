@@ -10,7 +10,10 @@ use App\Services\Prospecting\OutreachService;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
-/** First messages waiting for review: edit, then send through the API or from the user's own WhatsApp. */
+/**
+ * Prospect messages waiting for review (first messages in three angles, and cadence follow-ups):
+ * pick and edit, then send through the API or from the user's own WhatsApp.
+ */
 class OutreachQueue extends Component
 {
     public Empresa $empresa;
@@ -31,6 +34,18 @@ class OutreachQueue extends Component
         if ($draft->status === 'draft') {
             $draft->update(['texto_final' => trim($texto)]);
         }
+    }
+
+    public function escolherVariante(int $draftId, string $angulo): void
+    {
+        app(OutreachService::class)->chooseVariant($this->draft($draftId), $angulo);
+    }
+
+    /** The lead answered somewhere the system can't see (e.g. the user's own WhatsApp): the cadence stops. */
+    public function respondeu(int $draftId): void
+    {
+        app(OutreachService::class)->registerReply($this->draft($draftId)->lead);
+        $this->dispatch('toast', type: 'success', message: __('messages.reply_registered'));
     }
 
     public function enviarPelaApi(int $draftId, string $texto): void

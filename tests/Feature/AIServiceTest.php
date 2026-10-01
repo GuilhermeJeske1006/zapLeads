@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use Anthropic\Client as AnthropicClient;
+use App\Models\Conversation;
 use App\Models\Empresa;
 use App\Models\Lead;
+use App\Models\OutreachDraft;
 use App\Models\User;
 use App\Services\AIService;
 use GuzzleHttp\Client as GuzzleClient;
@@ -36,21 +38,63 @@ class AIServiceTest extends TestCase
         $this->assertArrayNotHasKey('fallbacks', $body);
     }
 
-    public function test_messages_use_quality_tier_with_low_effort_and_refusal_fallback(): void
+    public function test_first_message_uses_quality_tier_with_cached_seller_data_and_three_angles(): void
     {
-        $this->fakeClaude([$this->answer('Oi! Vocês ainda marcam horário só pelo WhatsApp?')]);
-        $empresa = Empresa::create(['user_id' => User::factory()->create()->id, 'nome' => 'Agenda Fácil']);
-        $lead = new Lead(['nome' => 'Studio Bella', 'cidade' => 'Blumenau']);
+        $this->fakeClaude([$this->answer([
+            'dor_hipotese' => 'Clientes desistem quando ninguém responde o WhatsApp',
+            'variantes'    => [
+                ['angulo' => 'observacao', 'mensagem' => ' Oi! Vi a nota 4,8 de vocês. Seria absurdo te mostrar uma ideia? ', 'gancho_usado' => 'Nota 4,8'],
+                ['angulo' => 'roteamento', 'mensagem' => 'É com você que falo sobre a agenda?', 'gancho_usado' => ''],
+                ['angulo' => 'roteamento', 'mensagem' => 'Duplicada?', 'gancho_usado' => null],
+            ],
+        ])]);
 
-        $text = app(AIService::class)->gerarPrimeiraMensagemProspeccao($empresa, $lead);
+        $result = app(AIService::class)->gerarAbordagem(['nome' => 'Agenda Fácil'], ['nome' => 'Studio Bella', 'nota_google' => 4.8], 'pt_BR', ['variante observacao: passou de 300 caracteres']);
 
-        $this->assertSame('Oi! Vocês ainda marcam horário só pelo WhatsApp?', $text);
+        $this->assertSame('Clientes desistem quando ninguém responde o WhatsApp', $result['dor_hipotese']);
+        $this->assertSame([
+            ['angulo' => 'observacao', 'mensagem' => 'Oi! Vi a nota 4,8 de vocês. Seria absurdo te mostrar uma ideia?', 'gancho_usado' => 'Nota 4,8'],
+            ['angulo' => 'roteamento', 'mensagem' => 'É com você que falo sobre a agenda?', 'gancho_usado' => null],
+        ], $result['variantes']);
+
         $body = $this->sentBody();
         $this->assertSame('claude-sonnet-5-5', $body['model']);
         $this->assertSame('low', $body['output_config']['effort']);
         $this->assertSame('default', $body['fallbacks']);
         $this->assertGreaterThanOrEqual(2000, $body['max_tokens']);
         $this->assertSame('server-side-fallback-2026-07-01', $this->sent[0]['request']->getHeaderLine('anthropic-beta'));
+        // Seller data sits in the system prompt, cached; the lead goes in the user message.
+        $this->assertSame(['type' => 'ephemeral'], $body['system'][0]['cache_control']);
+        $this->assertStringContainsString('"nome": "Agenda Fácil"', $body['system'][0]['text']);
+        $this->assertStringContainsString('Studio Bella', $body['messages'][0]['content']);
+        $this->assertStringContainsString('passou de 300 caracteres', $body['messages'][0]['content']);
+        $this->assertSame(AIService::ANGULOS, $body['output_config']['format']['schema']['properties']['variantes']['items']['properties']['angulo']['enum']);
+    }
+
+    public function test_reply_to_a_prospect_follows_the_outreach_playbook(): void
+    {
+        $this->fakeClaude([$this->answer('Que bom! Como vocês marcam hoje?'), $this->answer('Oi! Em que posso ajudar?')]);
+        $empresa = Empresa::create([
+            'user_id' => User::factory()->create()->id, 'nome' => 'Agenda Fácil', 'oferta_de_entrada' => 'Demo de 10 minutos',
+        ]);
+        $lead = Lead::create(['empresa_id' => $empresa->id, 'nome' => 'Studio Bella', 'telefone' => '+55 47 99999-8888']);
+        OutreachDraft::create([
+            'empresa_id' => $empresa->id, 'lead_id' => $lead->id, 'status' => 'sent', 'etapa' => 0,
+            'texto_final' => 'Oi! Vocês ainda marcam horário só pelo WhatsApp?', 'dor_hipotese' => 'Perde clientes sem resposta',
+        ]);
+        $prospect = Conversation::create(['empresa_id' => $empresa->id, 'telefone' => '+5547999998888', 'status' => 'active']);
+        $customer = Conversation::create(['empresa_id' => $empresa->id, 'telefone' => '+5547988887777', 'status' => 'active']);
+        $ai = app(AIService::class);
+
+        $this->assertSame('Que bom! Como vocês marcam hoje?', $ai->gerarMensagem($prospect));
+        $ai->gerarMensagem($customer);
+
+        $system = $this->sentBody(0)['system'];
+        $this->assertStringContainsString('CONTEXTO DE PROSPECÇÃO', $system);
+        $this->assertStringContainsString('Demo de 10 minutos', $system);
+        $this->assertStringContainsString('Perde clientes sem resposta', $system);
+        $this->assertStringContainsString('Oi! Vocês ainda marcam horário só pelo WhatsApp?', $system);
+        $this->assertStringNotContainsString('CONTEXTO DE PROSPECÇÃO', $this->sentBody(1)['system']);
     }
 
     public function test_truncated_answer_is_discarded(): void

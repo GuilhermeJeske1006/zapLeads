@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Prospecting\MessageParts;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,10 +17,14 @@ class WhatsAppTemplate extends Model
 
     /** What a placeholder can be filled with: field => label. */
     public const FIELDS = [
-        'lead_nome'    => 'messages.template_field_lead_nome',
-        'lead_cidade'  => 'messages.template_field_lead_cidade',
-        'empresa_nome' => 'messages.template_field_empresa_nome',
-        'mensagem'     => 'messages.template_field_mensagem',
+        'lead_nome'             => 'messages.template_field_lead_nome',
+        'lead_cidade'           => 'messages.template_field_lead_cidade',
+        'empresa_nome'          => 'messages.template_field_empresa_nome',
+        'contato_nome'          => 'messages.template_field_contato_nome',
+        'mensagem'              => 'messages.template_field_mensagem',
+        'mensagem_sem_saudacao' => 'messages.template_field_mensagem_sem_saudacao',
+        'abertura'              => 'messages.template_field_abertura',
+        'pergunta'              => 'messages.template_field_pergunta',
     ];
 
     protected $fillable = [
@@ -53,17 +58,23 @@ class WhatsAppTemplate extends Model
 
     /**
      * Placeholder values ({"1": "Studio Bella", ...}), or null when one is unmapped or comes out
-     * empty: WhatsApp rejects empty parameters, and line breaks aren't allowed in them.
+     * empty: WhatsApp rejects empty parameters, and line breaks aren't allowed in them. The parts of
+     * the message (opening, question) are cut from the reviewed text.
      *
      * @return array<string, string>|null
      */
     public function variablesFor(Lead $lead, string $mensagem): ?array
     {
+        $parts = MessageParts::split($mensagem);
         $values = [
-            'lead_nome'    => $lead->nome,
-            'lead_cidade'  => $lead->cidade,
-            'empresa_nome' => $this->empresa?->nome,
-            'mensagem'     => $mensagem,
+            'lead_nome'             => $lead->nome,
+            'lead_cidade'           => $lead->cidade,
+            'empresa_nome'          => $this->empresa?->nome,
+            'contato_nome'          => $lead->primeiroNomeDecisor(),
+            'mensagem'              => $mensagem,
+            'mensagem_sem_saudacao' => MessageParts::withoutGreeting($mensagem),
+            'abertura'              => $parts['abertura'],
+            'pergunta'              => $parts['pergunta'],
         ];
 
         $variables = [];

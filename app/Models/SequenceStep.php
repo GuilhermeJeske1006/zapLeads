@@ -14,6 +14,7 @@ class SequenceStep extends Model
         'delay_hours',
         'tipo',
         'imagem',
+        'objetivo',
     ];
 
     protected $casts = [

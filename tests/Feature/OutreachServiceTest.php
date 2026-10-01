@@ -92,6 +92,10 @@ class OutreachServiceTest extends TestCase
         $draft->refresh();
         $this->assertSame('draft', $draft->status);
         $this->assertSame('Oi! Vocês ainda marcam horário só pelo WhatsApp?', $draft->texto_final);
+        $this->assertCount(3, $draft->variantes);
+        // No hook from the scoring: the observation angle is not suggested first.
+        $this->assertSame('dor_do_segmento', $draft->variante_escolhida);
+        $this->assertSame('Perde clientes que não conseguem marcar horário', $draft->dor_hipotese);
         Queue::assertNotPushed(SendOutreachDraftJob::class);
     }
 
@@ -135,6 +139,26 @@ class OutreachServiceTest extends TestCase
             && json_decode($params['contentVariables'], true) === ['1' => 'Studio Bella', '2' => 'Vocês ainda marcam horário pelo WhatsApp?']
             && !isset($params['body'])
             && $params['from'] === $channel->numero);
+    }
+
+    public function test_uses_the_first_template_the_message_fills(): void
+    {
+        $this->channel($this->empresa);
+        // Greets by the decision maker's name: this lead has none we trust.
+        WhatsAppTemplate::create([
+            'empresa_id' => $this->empresa->id, 'nome' => 'com_nome', 'content_sid' => 'HX' . str_repeat('b', 32),
+            'corpo_preview' => 'Olá, {{1}}! {{2}}', 'variaveis' => ['1' => 'contato_nome', '2' => 'mensagem_sem_saudacao'], 'status' => 'approved',
+        ]);
+        WhatsAppTemplate::create([
+            'empresa_id' => $this->empresa->id, 'nome' => 'sem_nome', 'content_sid' => 'HX' . str_repeat('c', 32),
+            'corpo_preview' => "Olá! {{1}}\n\n{{2}}", 'variaveis' => ['1' => 'abertura', '2' => 'pergunta'], 'status' => 'approved',
+        ]);
+        $draft = $this->draft($this->lead('+55 47 99280-1006'), 'Oi, tudo bem? Vi que vocês atendem sábado. Seria absurdo eu te mostrar uma ideia?');
+
+        $plan = $this->outreach()->deliveryPlan($draft);
+
+        $this->assertSame(['template', 'sem_nome'], [$plan['mode'], $plan['template']]);
+        $this->assertSame("Olá! Vi que vocês atendem sábado.\n\nSeria absurdo eu te mostrar uma ideia?", $plan['preview']);
     }
 
     public function test_open_session_goes_out_as_free_text(): void
@@ -259,7 +283,7 @@ class OutreachServiceTest extends TestCase
 
     public function test_auto_send_schedules_the_message_once_written(): void
     {
-        $this->ai('Oi!');
+        $this->ai('Oi! Vocês ainda marcam horário só pelo WhatsApp?');
         $this->empresa->update(['prospeccao_envio_automatico' => true]);
         $this->channel($this->empresa);
         $this->template(['1' => 'lead_nome']);
@@ -299,12 +323,16 @@ class OutreachServiceTest extends TestCase
         return app(OutreachService::class);
     }
 
+    /** The AI writes $text in every angle ('' = the call failed). */
     private function ai(string $text = '', bool $never = false): void
     {
         $ai = Mockery::mock(AIService::class);
         $never
-            ? $ai->shouldNotReceive('gerarPrimeiraMensagemProspeccao')
-            : $ai->shouldReceive('gerarPrimeiraMensagemProspeccao')->andReturn($text);
+            ? $ai->shouldNotReceive('gerarAbordagem')
+            : $ai->shouldReceive('gerarAbordagem')->andReturn($text === '' ? null : [
+                'dor_hipotese' => 'Perde clientes que não conseguem marcar horário',
+                'variantes'    => array_map(fn (string $angulo) => ['angulo' => $angulo, 'mensagem' => $text, 'gancho_usado' => null], AIService::ANGULOS),
+            ]);
         $this->app->instance(AIService::class, $ai);
     }
 

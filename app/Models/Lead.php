@@ -117,6 +117,26 @@ class Lead extends Model
         return $this->hasMany(OutreachAttempt::class);
     }
 
+    /** How sure we are that decisor_nome runs the business: registry data 80, a web page 50. */
+    public function decisorConfianca(): ?int
+    {
+        if (trim((string) $this->decisor_nome) === '') {
+            return null;
+        }
+
+        return isset($this->dossie['decisor_fonte']) ? 50 : 80;
+    }
+
+    /** First name to greet the decision maker by, only when we trust it (60+). */
+    public function primeiroNomeDecisor(): ?string
+    {
+        if (($this->decisorConfianca() ?? 0) < 60) {
+            return null;
+        }
+
+        return explode(' ', trim($this->decisor_nome))[0];
+    }
+
     public const STATUSES = [
         'novo'        => ['label' => 'Novo',        'color' => 'gray'],
         'contatado'   => ['label' => 'Contatado',   'color' => 'blue'],

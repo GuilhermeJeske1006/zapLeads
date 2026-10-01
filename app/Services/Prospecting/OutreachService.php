@@ -12,18 +12,19 @@ use App\Models\OutreachAttempt;
 use App\Models\OutreachDraft;
 use App\Models\WhatsAppChannel;
 use App\Models\WhatsAppTemplate;
-use App\Services\AIService;
 
 /**
  * The one place that decides whether and how a prospect is approached. Nothing goes out without
- * review: request() queues a draft, the user edits it, then either approve() schedules it on the
- * API channel or markAssisted() records that they sent it from their own WhatsApp.
+ * review: request() queues a draft (written in three angles), the user picks and edits one, then
+ * either approve() schedules it on the API channel or markAssisted() records that they sent it from
+ * their own WhatsApp. Once sent, FollowUpCadence queues the follow-ups the same way.
  */
 class OutreachService
 {
     public function __construct(
-        private readonly AIService $ai,
+        private readonly OutreachWriter $writer,
         private readonly OutreachScheduler $scheduler,
+        private readonly FollowUpCadence $cadence,
     ) {}
 
     /** @throws OutreachException when the lead can't receive WhatsApp messages */
@@ -99,23 +100,21 @@ class OutreachService
         return $draft;
     }
 
-    /** Writes the message (GenerateOutreachDraftJob). With auto-send on, approves it right away. */
+    /**
+     * Writes the message (GenerateOutreachDraftJob): the first one in three angles, with the one
+     * this empresa sent least picked for A/B, or the follow-up of the draft's cadence step. With
+     * auto-send on, approves it right away.
+     */
     public function prepare(OutreachDraft $draft): void
     {
-        $text = trim($this->ai->gerarPrimeiraMensagemProspeccao($draft->empresa, $draft->lead));
+        $written = $draft->isFollowUp() ? $this->writeFollowUp($draft) : $this->writeFirst($draft);
 
-        if ($text === '') {
+        if ($written === null) {
             $draft->update(['status' => 'failed', 'erro' => 'generation_failed']);
             return;
         }
 
-        $draft->update([
-            'variantes'          => [['angulo' => 'padrao', 'mensagem' => $text]],
-            'variante_escolhida' => 'padrao',
-            'texto_final'        => $text,
-            'status'             => 'draft',
-            'erro'               => null,
-        ]);
+        $draft->update($written + ['status' => 'draft', 'erro' => null]);
 
         if ($draft->empresa->prospeccao_envio_automatico) {
             try {
@@ -123,6 +122,16 @@ class OutreachService
             } catch (OutreachException) {
                 // Stays in the queue: the user decides how to send it.
             }
+        }
+    }
+
+    /** The user picked another angle in the review card: its text replaces the current one. */
+    public function chooseVariant(OutreachDraft $draft, string $angulo): void
+    {
+        $variante = $draft->variante($angulo);
+
+        if ($draft->status === 'draft' && $variante) {
+            $draft->update(['variante_escolhida' => $angulo, 'texto_final' => $variante['mensagem']]);
         }
     }
 
@@ -212,6 +221,7 @@ class OutreachService
 
         $draft->update(['status' => 'sent', 'sent_at' => now(), 'whatsapp_channel_id' => $channel->id]);
         $this->recordAttempt($draft, 'api', $text);
+        $this->cadence->onSent($draft);
 
         return $message;
     }
@@ -232,14 +242,18 @@ class OutreachService
             $draft->lead->update(['status' => 'contatado']);
         }
 
-        return $this->recordAttempt($draft, 'assisted', $draft->texto_final);
+        $attempt = $this->recordAttempt($draft, 'assisted', $draft->texto_final);
+        $this->cadence->onSent($draft);
+
+        return $attempt;
     }
 
-    /** Takes the draft out of the queue; an approved one is not sent. */
+    /** Takes the draft out of the queue; an approved one is not sent. A skipped follow-up moves the cadence on. */
     public function skip(OutreachDraft $draft): void
     {
         if (in_array($draft->status, ['draft', 'approved', 'failed'], true)) {
             $draft->update(['status' => 'skipped']);
+            $this->cadence->onSkipped($draft);
         }
     }
 
@@ -259,7 +273,7 @@ class OutreachService
         $draft->update(['status' => 'draft', 'erro' => null, 'scheduled_for' => null]);
     }
 
-    /** An inbound message from the number credits the last attempt to reach it. */
+    /** An inbound message from the number credits the last attempt to reach it and ends the cold cadence. */
     public function markReplied(int $empresaId, string $e164): void
     {
         OutreachAttempt::where('empresa_id', $empresaId)
@@ -268,12 +282,16 @@ class OutreachService
             ->latest('id')
             ->first()
             ?->update(['responded_at' => now()]);
+
+        Lead::where('empresa_id', $empresaId)->where('telefone_e164', $e164)->get()
+            ->each(fn (Lead $lead) => $this->cadence->stop($lead));
     }
 
     /** "Ele respondeu": a reply the system can't see, e.g. to a message sent from the user's own WhatsApp. */
     public function registerReply(Lead $lead): void
     {
         $lead->outreachAttempts()->whereNull('responded_at')->latest('id')->first()?->update(['responded_at' => now()]);
+        $this->cadence->stop($lead);
 
         if (in_array($lead->status ?? 'novo', ['novo', 'contatado'], true)) {
             $lead->update(['status' => 'interessado']);
@@ -325,8 +343,8 @@ class OutreachService
     }
 
     /**
-     * Null inside the 24h session (free text goes); outside it, the empresa's approved template
-     * with its variables filled for this lead.
+     * Null inside the 24h session (free text goes); outside it, the first approved template of the
+     * empresa whose variables this lead and message fill.
      *
      * @return array{template: WhatsAppTemplate, variables: array<string, string>}|null
      * @throws OutreachException
@@ -337,17 +355,20 @@ class OutreachService
             return null;
         }
 
-        $template = $draft->empresa->whatsappTemplates()->usable()->orderBy('id')->first();
-        if (!$template) {
+        $templates = $draft->empresa->whatsappTemplates()->usable()->orderBy('id')->get();
+        if ($templates->isEmpty()) {
             throw new OutreachException('session_closed');
         }
 
-        $variables = $template->variablesFor($draft->lead, (string) $draft->texto_final);
-        if ($variables === null) {
-            throw new OutreachException('template_incomplete');
+        // The first one this message fills: e.g. one template greets by name, another doesn't.
+        foreach ($templates as $template) {
+            $variables = $template->variablesFor($draft->lead, (string) $draft->texto_final);
+            if ($variables !== null) {
+                return ['template' => $template, 'variables' => $variables];
+            }
         }
 
-        return ['template' => $template, 'variables' => $variables];
+        throw new OutreachException('template_incomplete');
     }
 
     private function conversationOf(OutreachDraft $draft): ?Conversation
@@ -374,6 +395,45 @@ class OutreachService
             'canal'             => $canal,
             'mensagem'          => $mensagem,
             'variante'          => $draft->variante_escolhida,
+            'etapa'             => $draft->etapa,
         ]);
+    }
+
+    /** @return array<string, mixed>|null the draft fields, or null when no message passed review */
+    private function writeFirst(OutreachDraft $draft): ?array
+    {
+        $written = $this->writer->firstMessage($draft->lead);
+        if ($written === null) {
+            return null;
+        }
+
+        $angulo = $this->writer->suggestedAngle($draft->empresa, $written['variantes'], !empty($draft->lead->ai_insights['gancho']));
+
+        return [
+            'variantes'          => $written['variantes'],
+            'variante_escolhida' => $angulo,
+            'texto_final'        => collect($written['variantes'])->firstWhere('angulo', $angulo)['mensagem'],
+            'dor_hipotese'       => $written['dor_hipotese'],
+        ];
+    }
+
+    /** @return array<string, mixed>|null */
+    private function writeFollowUp(OutreachDraft $draft): ?array
+    {
+        $objetivo = $this->cadence->goalOf($draft);
+        $historico = $draft->lead->outreachAttempts()->orderBy('id')->pluck('mensagem')->all();
+        $dorHipotese = OutreachDraft::where('lead_id', $draft->lead_id)->where('etapa', 0)->where('status', 'sent')->latest('id')->value('dor_hipotese');
+
+        $text = $this->writer->followUp($draft->lead, $objetivo, $historico, $dorHipotese);
+        if ($text === null) {
+            return null;
+        }
+
+        return [
+            'variantes'          => [['angulo' => $objetivo, 'mensagem' => $text, 'gancho_usado' => null]],
+            'variante_escolhida' => $objetivo,
+            'texto_final'        => $text,
+            'dor_hipotese'       => $dorHipotese,
+        ];
     }
 }

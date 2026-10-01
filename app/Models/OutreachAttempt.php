@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** A first message that reached the prospect, through the API or the user's own WhatsApp ("assisted"). */
+/** A message that reached the prospect (etapa 0 = first, then follow-ups), through the API or the user's own WhatsApp ("assisted"). */
 class OutreachAttempt extends Model
 {
     protected $fillable = [
@@ -15,10 +15,12 @@ class OutreachAttempt extends Model
         'canal',
         'mensagem',
         'variante',
+        'etapa',
         'responded_at',
     ];
 
     protected $casts = [
+        'etapa'        => 'integer',
         'responded_at' => 'datetime',
     ];
 

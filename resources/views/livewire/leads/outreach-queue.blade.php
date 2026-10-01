@@ -92,7 +92,39 @@
                             @if ($lead->cidade)
                                 <p class="text-xs text-gray-400">{{ $lead->cidade }}</p>
                             @endif
+                            @if ($draft->isFollowUp())
+                                <span class="text-xs px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                                    {{ __('messages.outreach_follow_up_step', ['step' => $draft->etapa, 'total' => count(\App\Services\Prospecting\FollowUpCadence::STEPS), 'goal' => __('messages.outreach_goal_' . $draft->variante_escolhida)]) }}
+                                </span>
+                            @endif
                         </div>
+
+                        @if (!$draft->isFollowUp() && count($draft->variantes ?? []) > 1)
+                            <div class="flex flex-wrap gap-1.5" role="group" aria-label="{{ __('messages.outreach_angles') }}">
+                                @foreach ($draft->variantes as $variante)
+                                    @php $chosen = $draft->variante_escolhida === $variante['angulo']; @endphp
+                                    <button type="button"
+                                            @click="texto = @js($variante['mensagem']); $wire.escolherVariante({{ $draft->id }}, @js($variante['angulo']))"
+                                            aria-pressed="{{ $chosen ? 'true' : 'false' }}"
+                                            class="px-2.5 py-1 text-xs rounded-lg border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400
+                                                   {{ $chosen ? 'bg-emerald-600/20 border-emerald-500 text-emerald-300' : 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700' }}">
+                                        {{ __('messages.outreach_angle_' . $variante['angulo']) }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        @endif
+
+                        @php $gancho = $draft->variante((string) $draft->variante_escolhida)['gancho_usado'] ?? null; @endphp
+                        @if ($draft->dor_hipotese || $gancho)
+                            <div class="text-xs text-gray-400 space-y-0.5">
+                                @if ($gancho)
+                                    <p><span class="text-gray-500">{{ __('messages.outreach_fact_used') }}:</span> {{ $gancho }}</p>
+                                @endif
+                                @if ($draft->dor_hipotese)
+                                    <p><span class="text-gray-500">{{ __('messages.outreach_pain_hypothesis') }}:</span> {{ $draft->dor_hipotese }}</p>
+                                @endif
+                            </div>
+                        @endif
 
                         <textarea x-model="texto" @change="$wire.salvarTexto({{ $draft->id }}, texto)" rows="3" maxlength="1000"
                                   aria-label="{{ __('messages.outreach_message_for', ['nome' => $lead->nome]) }}"
@@ -137,6 +169,15 @@
                                           focus:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366]">
                                     {{ __('messages.open_in_my_whatsapp') }}
                                 </a>
+                            @endif
+
+                            @if ($draft->isFollowUp())
+                                <button wire:click="respondeu({{ $draft->id }})"
+                                        title="{{ __('messages.outreach_he_replied_hint') }}"
+                                        class="px-3 py-1.5 text-xs text-gray-300 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors
+                                               focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400">
+                                    {{ __('messages.lead_replied') }}
+                                </button>
                             @endif
 
                             <button wire:click="pular({{ $draft->id }})"
