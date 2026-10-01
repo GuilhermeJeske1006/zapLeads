@@ -16,6 +16,9 @@ use Illuminate\Support\Facades\Log;
 
 class ProspectingService
 {
+    /** Google Text Search serves at most 3 pages (60 places) per query. */
+    private const MAX_PAGES = 3;
+
     private PlacesProviderInterface $places;
     private bool $placesEnabled = false;
 
@@ -38,22 +41,17 @@ class ProspectingService
         }
     }
 
-    public function run(Empresa $empresa, string $descricaoEmpresa, string $tipoCliente, float $radiusKm, int $maxResults = 60, ?float $customLat = null, ?float $customLng = null, string $customLocationLabel = ''): ProspectingSearch
+    /**
+     * Runs a search created (status "queued") before the job was dispatched, so the UI can follow
+     * it by id. A job retry runs the same search again instead of creating another one.
+     */
+    public function run(ProspectingSearch $search, int $maxResults = 60, ?float $customLat = null, ?float $customLng = null, string $customLocationLabel = ''): ProspectingSearch
     {
+        $empresa = $search->empresa;
+        $radiusKm = (float) $search->radius_km;
+
         if (!$this->placesEnabled) {
-            $lat = $customLat ?? (float) ($empresa->latitude ?? 0);
-            $lng = $customLng ?? (float) ($empresa->longitude ?? 0);
-            return ProspectingSearch::create([
-                'empresa_id' => $empresa->id,
-                'descricao_empresa' => $descricaoEmpresa,
-                'tipo_cliente' => $tipoCliente,
-                'latitude' => $lat,
-                'longitude' => $lng,
-                'radius_km' => $radiusKm,
-                'keywords' => [],
-                'status' => 'failed',
-                'error' => 'Configuração ausente: defina GOOGLE_PLACES_API_KEY ou MAPBOX_TOKEN no .env.',
-            ]);
+            return $this->fail($search, 'Configuração ausente: defina GOOGLE_PLACES_API_KEY ou MAPBOX_TOKEN no .env.');
         }
 
         if ($customLat !== null && $customLng !== null) {
@@ -62,65 +60,27 @@ class ProspectingService
         } else {
             $coords = $this->ensureStoreCoords($empresa);
             if (!$coords) {
-                return ProspectingSearch::create([
-                    'empresa_id' => $empresa->id,
-                    'descricao_empresa' => $descricaoEmpresa,
-                    'tipo_cliente' => $tipoCliente,
-                    'latitude' => 0,
-                    'longitude' => 0,
-                    'radius_km' => $radiusKm,
-                    'keywords' => [],
-                    'status' => 'failed',
-                    'error' => 'Não foi possível localizar o endereço da empresa. Atualize o endereço e tente novamente.',
-                ]);
+                return $this->fail($search, 'Não foi possível localizar o endereço da empresa. Atualize o endereço e tente novamente.');
             }
             $searchCity = $empresa->cidade;
         }
 
-        $keywords = $this->ai->gerarKeywordsProspeccao($descricaoEmpresa, $tipoCliente);
+        $search->update(['status' => 'running', 'latitude' => $coords['lat'], 'longitude' => $coords['lng']]);
+
+        $keywords = $this->ai->gerarKeywordsProspeccao($search->descricao_empresa, $search->tipo_cliente);
         if (empty($keywords)) {
-            $keywords = $this->fallbackKeywords($tipoCliente);
+            $keywords = $this->fallbackKeywords($search->tipo_cliente);
         }
 
-        $search = ProspectingSearch::create([
-            'empresa_id' => $empresa->id,
-            'descricao_empresa' => $descricaoEmpresa,
-            'tipo_cliente' => $tipoCliente,
-            'latitude' => $coords['lat'],
-            'longitude' => $coords['lng'],
-            'radius_km' => $radiusKm,
-            'keywords' => $keywords,
-            'status' => 'running',
-        ]);
+        $search->update(['keywords' => $keywords]);
 
         try {
-            $radiusMeters = (int) round(max(1, $radiusKm) * 1000);
-            $collected = [];
-
-            foreach ($keywords as $keyword) {
-                if (count($collected) >= $maxResults) {
-                    break;
-                }
-
-                $places = $this->places->nearbySearch($coords['lat'], $coords['lng'], $radiusMeters, (string) $keyword);
-                foreach ($places as $p) {
-                    if (count($collected) >= $maxResults) {
-                        break;
-                    }
-
-                    $externalId = (string) ($p['external_id'] ?? '');
-                    if ($externalId === '') {
-                        continue;
-                    }
-
-                    $collected[$externalId] = $p;
-                }
-            }
+            $collected = $this->collectPlaces($keywords, $coords, $radiusKm, $maxResults);
 
             Log::debug('ProspectingService collected places', ['count' => count($collected), 'empresa_id' => $empresa->id]);
 
             $leads = [];
-            foreach (array_values($collected) as $p) {
+            foreach ($collected as $p) {
                 try {
                     $lead = $this->upsertLeadFromPlace($empresa, $search, $p, $radiusKm, $coords, $searchCity);
                     if ($lead) {
@@ -138,8 +98,8 @@ class ProspectingService
 
             // AI ranking — optional, non-blocking. Falls back to raw results if AI fails.
             $ranked = $this->ai->buscarLeadsPorPerfil(
-                $descricaoEmpresa,
-                $tipoCliente,
+                $search->descricao_empresa,
+                $search->tipo_cliente,
                 array_map(fn (Lead $l) => $l->toArray(), $leads),
             );
 
@@ -162,15 +122,81 @@ class ProspectingService
                 'results_count' => count($leads),
             ]);
 
-            return $search->fresh(['leads']);
+            return $search->fresh();
         } catch (\Throwable $e) {
             Log::error('ProspectingService run failed', ['empresa_id' => $empresa->id, 'error' => $e->getMessage()]);
-            $search->update([
-                'status' => 'failed',
-                'error' => $e->getMessage(),
-            ]);
-            return $search->fresh();
+            return $this->fail($search, $e->getMessage());
         }
+    }
+
+    private function fail(ProspectingSearch $search, string $error): ProspectingSearch
+    {
+        $search->update(['status' => 'failed', 'error' => $error]);
+
+        return $search;
+    }
+
+    /**
+     * Up to $maxResults places inside the radius, taken in turns from each keyword's results so the
+     * first keywords don't crowd out the others. Keywords with more results are paged in later rounds.
+     */
+    private function collectPlaces(array $keywords, array $center, float $radiusKm, int $maxResults): array
+    {
+        $radiusMeters = (int) round(max(1, $radiusKm) * 1000);
+        $pageTokens = array_fill_keys($keywords, null);
+        $collected = [];
+
+        for ($round = 0; $round < self::MAX_PAGES && $pageTokens && count($collected) < $maxResults; $round++) {
+            $pages = [];
+
+            foreach ($pageTokens as $keyword => $token) {
+                $page = $this->places->nearbySearch($center['lat'], $center['lng'], $radiusMeters, (string) $keyword, $token);
+                $pages[] = $page['places'];
+
+                if ($page['next_page_token']) {
+                    $pageTokens[$keyword] = $page['next_page_token'];
+                } else {
+                    unset($pageTokens[$keyword]);
+                }
+            }
+
+            foreach ($this->interleave($pages) as $place) {
+                $externalId = (string) ($place['external_id'] ?? '');
+                if ($externalId === '' || isset($collected[$externalId])) {
+                    continue;
+                }
+
+                // The provider searches a rectangle; its corners are outside the radius.
+                if (Distance::haversineKm($center['lat'], $center['lng'], (float) $place['lat'], (float) $place['lng']) > $radiusKm) {
+                    continue;
+                }
+
+                $collected[$externalId] = $place;
+
+                if (count($collected) >= $maxResults) {
+                    break;
+                }
+            }
+        }
+
+        return array_values($collected);
+    }
+
+    /** [[a1, a2, a3], [b1]] → [a1, b1, a2, a3] */
+    private function interleave(array $lists): array
+    {
+        $out = [];
+        $longest = max([0, ...array_map('count', $lists)]);
+
+        for ($i = 0; $i < $longest; $i++) {
+            foreach ($lists as $list) {
+                if (isset($list[$i])) {
+                    $out[] = $list[$i];
+                }
+            }
+        }
+
+        return $out;
     }
 
     private function upsertLeadFromPlace(Empresa $empresa, ProspectingSearch $search, array $place, float $radiusKm, array $center, ?string $searchCity = null): ?Lead
@@ -184,10 +210,11 @@ class ProspectingService
         $distKm = Distance::haversineKm($center['lat'], $center['lng'], $lat, $lng);
         $isNearby = $distKm <= $radiusKm;
 
+        $source = $this->places->name();
         $externalId = (string) ($place['external_id'] ?? '');
         $lead = Lead::query()
             ->where('empresa_id', $empresa->id)
-            ->where('external_source', 'mapbox')
+            ->where('external_source', $source)
             ->where('external_id', $externalId)
             ->first();
 
@@ -196,7 +223,7 @@ class ProspectingService
             'nome' => (string) ($place['name'] ?? '—'),
             'telefone' => (string) ($place['phone'] ?? ''),
             'source' => 'internet',
-            'external_source' => 'mapbox',
+            'external_source' => $source,
             'external_id' => $externalId,
             'latitude' => $lat,
             'longitude' => $lng,
@@ -205,21 +232,25 @@ class ProspectingService
             'website' => $place['website'] ?? null,
             'distancia_km' => round($distKm, 2),
             'is_nearby' => $isNearby,
-            'lead_score' => 50,
-            'ai_insights' => [
-                'rating' => $place['rating'] ?? null,
-                'user_ratings_total' => $place['user_ratings_total'] ?? null,
-                'types' => $place['types'] ?? null,
-            ],
+        ];
+
+        $placeInsights = [
+            'rating' => $place['rating'] ?? null,
+            'user_ratings_total' => $place['user_ratings_total'] ?? null,
+            'types' => $place['types'] ?? null,
         ];
 
         if ($lead) {
-            $lead->update($payload);
+            // Refreshes the place data but keeps what was learned about the lead (score, AI insights).
+            $lead->update($payload + ['ai_insights' => array_merge($lead->ai_insights ?? [], $placeInsights)]);
             return $lead->fresh();
         }
 
-        $payload['empresa_id'] = $empresa->id;
-        return Lead::create($payload);
+        return Lead::create($payload + [
+            'empresa_id' => $empresa->id,
+            'lead_score' => 50,
+            'ai_insights' => $placeInsights,
+        ]);
     }
 
     private function ensureStoreCoords(Empresa $empresa): ?array

@@ -123,6 +123,10 @@
 
 ### 0c — Prospecção
 
+> **Status:** concluída em 2026-09-30. No dev, 293 leads foram renomeados para `google_places` (todos tinham place id do Google). Também corrigido: `searchId` era uma propriedade pública do Livewire sem trava e o `render()` buscava a busca sem filtrar `empresa_id` (agora `#[Locked]` e filtrado); o `render()` carregava todos os leads da busca a cada poll de 1,5 s; um job que quebrava deixava a busca "running" para sempre (agora `failed()` marca como `failed`).
+>
+> **Custo:** o round-robin consulta todas as keywords na primeira rodada (5–10 requisições de Text Search por busca, antes ~3). A paginação só entra quando há poucas keywords. Não foi testado contra a API real do Google, só com `Http::fake`.
+
 1. `external_source` = provedor real (`google_places` | `mapbox`), vindo de `PlacesProviderInterface::name()`. **Antes**, migration de dados que renomeia os leads existentes (place IDs do Google começam com `ChIJ` → `google_places`), senão a próxima busca duplica os leads.
 2. `ProspectingSearch` criado com `status = 'queued'` **antes** de despachar o job; passar `searchId` ao `FindInternetLeadsJob`; `pollSearch` busca por id. Isso também evita uma segunda busca quando o job é reexecutado.
 3. O upsert não sobrescreve `lead_score` de lead existente.
@@ -544,7 +548,7 @@ PASSO 4 — Acompanhar (pipeline kanban)
 1. `test: align auth tests with onboarding flow, fix duplicate route name` (0.0)
 2. `fix(whatsapp): validate Twilio webhook signature and isolate tenants` (0a)
 3. `fix(phones): canonical E.164 with libphonenumber and Brazilian ninth digit` (0b)
-4. `fix: prospecção usa searchId, provider real e não sobrescreve score` (0c)
+4. `fix(prospecting): follow searches by id, real provider, area-bound paging` (0c)
 5. `refactor: AIService com structured outputs e modelos configuráveis` (0d)
 6. `refactor: OutreachService unifica envio` (0e)
 7. `chore: remove LeadFinder` (0f)

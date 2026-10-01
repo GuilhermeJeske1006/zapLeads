@@ -11,10 +11,16 @@ class MapboxPlacesProvider implements PlacesProviderInterface
         private readonly string $token,
     ) {}
 
-    public function nearbySearch(float $lat, float $lng, int $radiusMeters, string $keyword): array
+    public function name(): string
     {
-        if (!$this->token) {
-            return [];
+        return 'mapbox';
+    }
+
+    /** The geocoding API has no paging: everything comes in the first page. */
+    public function nearbySearch(float $lat, float $lng, int $radiusMeters, string $keyword, ?string $pageToken = null): array
+    {
+        if (!$this->token || $pageToken !== null) {
+            return ['places' => [], 'next_page_token' => null];
         }
 
         $bbox = $this->bboxFromRadius($lat, $lng, $radiusMeters);
@@ -56,10 +62,10 @@ class MapboxPlacesProvider implements PlacesProviderInterface
                 ];
             }
 
-            return $out;
+            return ['places' => $out, 'next_page_token' => null];
         } catch (\Throwable $e) {
             Log::warning('MapboxPlacesProvider nearbySearch failed', ['keyword' => $keyword, 'error' => $e->getMessage()]);
-            return [];
+            return ['places' => [], 'next_page_token' => null];
         }
     }
 

@@ -11,6 +11,7 @@ use App\Jobs\FindInternetLeadsJob;
 use App\Jobs\SendWhatsAppMessageJob;
 use App\Services\AIService;
 use App\Services\Geo\GeocodingService;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -27,8 +28,9 @@ class InternetProspector extends Component
 
     public bool $buscando = false;
     public bool $buscaFeita = false;
+
+    #[Locked]
     public ?int $searchId = null;
-    public string $dispatchedAt = '';
 
     public ?float $customLat = null;
     public ?float $customLng = null;
@@ -139,17 +141,25 @@ class InternetProspector extends Component
             'raio_atendimento' => $this->raioBuscaKm,
         ]);
 
+        // Created before the job so polling follows this exact search, even with others running.
+        $search = ProspectingSearch::create([
+            'empresa_id'        => $this->empresa->id,
+            'descricao_empresa' => $this->descricaoEmpresa,
+            'tipo_cliente'      => $this->tipoCliente,
+            'latitude'          => $this->customLat ?? (float) ($this->empresa->latitude ?? 0),
+            'longitude'         => $this->customLng ?? (float) ($this->empresa->longitude ?? 0),
+            'radius_km'         => $this->raioBuscaKm,
+            'keywords'          => [],
+            'status'            => 'queued',
+        ]);
+
         $this->buscando = true;
         $this->buscaFeita = false;
         $this->resultados = [];
-        $this->searchId = null;
-        $this->dispatchedAt = now()->utc()->toDateTimeString();
+        $this->searchId = $search->id;
 
         FindInternetLeadsJob::dispatch(
-            $this->empresa->id,
-            $this->descricaoEmpresa,
-            $this->tipoCliente,
-            $this->raioBuscaKm,
+            $search->id,
             60,
             $this->customLat,
             $this->customLng,
@@ -159,29 +169,20 @@ class InternetProspector extends Component
 
     public function pollSearch(): void
     {
-        if (!$this->buscando || !$this->dispatchedAt) {
+        if (!$this->buscando || !$this->searchId) {
             return;
         }
 
-        $search = ProspectingSearch::where('empresa_id', $this->empresa->id)
-            ->where('created_at', '>=', $this->dispatchedAt)
-            ->orderByDesc('created_at')
-            ->first();
+        $search = ProspectingSearch::where('empresa_id', $this->empresa->id)->find($this->searchId);
 
-        if (!$search) {
+        if ($search && in_array($search->status, ['queued', 'running'], true)) {
             return;
         }
 
-        if ($search->status === 'running') {
-            $this->searchId = $search->id;
-            return;
-        }
-
-        $this->searchId = $search->id;
         $this->buscando = false;
 
-        if ($search->status === 'failed') {
-            $this->dispatch('toast', type: 'error', message: $search->error ?: 'Erro ao buscar leads na internet.');
+        if (!$search || $search->status === 'failed') {
+            $this->dispatch('toast', type: 'error', message: $search?->error ?: 'Erro ao buscar leads na internet.');
             return;
         }
 
@@ -309,7 +310,10 @@ class InternetProspector extends Component
 
     public function render()
     {
-        $search = $this->searchId ? ProspectingSearch::with('leads')->find($this->searchId) : null;
+        $search = $this->searchId
+            ? ProspectingSearch::where('empresa_id', $this->empresa->id)->find($this->searchId)
+            : null;
+
         return view('livewire.leads.internet-prospector', compact('search'));
     }
 }

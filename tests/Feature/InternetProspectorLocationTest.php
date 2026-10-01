@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\FindInternetLeadsJob;
 use App\Livewire\Leads\InternetProspector;
 use App\Models\Empresa;
+use App\Models\ProspectingSearch;
 use App\Services\Geo\GeocodingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -49,7 +50,7 @@ class InternetProspectorLocationTest extends TestCase
             ->call('buscar');
 
         Queue::assertPushed(FindInternetLeadsJob::class, function (FindInternetLeadsJob $job) use ($empresa) {
-            return $job->empresaId === $empresa->id
+            return ProspectingSearch::whereKey($job->searchId)->where('empresa_id', $empresa->id)->where('status', 'queued')->exists()
                 && $job->customLat === -23.561684
                 && $job->customLng === -46.655981
                 && $job->customLocationLabel === 'Av. Paulista, 1000 - Bela Vista, São Paulo - SP, Brasil';
@@ -80,7 +81,7 @@ class InternetProspectorLocationTest extends TestCase
             ->call('buscar');
 
         Queue::assertPushed(FindInternetLeadsJob::class, function (FindInternetLeadsJob $job) use ($empresa) {
-            return $job->empresaId === $empresa->id
+            return ProspectingSearch::whereKey($job->searchId)->where('empresa_id', $empresa->id)->where('status', 'queued')->exists()
                 && $job->customLat === -26.304408
                 && $job->customLng === -48.848111
                 && $job->customLocationLabel === 'Joinville - SC, Brasil';
