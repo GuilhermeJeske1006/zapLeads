@@ -6,6 +6,7 @@ use App\Models\Lead;
 use App\Models\Empresa;
 use App\Models\ProspectingSearch;
 use App\Services\AIService;
+use App\Services\Enrichment\LeadEnrichmentService;
 use App\Services\Geo\Distance;
 use App\Services\Geo\GeocodingService;
 use App\Services\Prospecting\Providers\GooglePlacesProvider;
@@ -25,6 +26,7 @@ class ProspectingService
     public function __construct(
         private readonly AIService $ai,
         private readonly GeocodingService $geo,
+        private readonly LeadEnrichmentService $enrichment,
     ) {
         $googleKey   = (string) config('services.google_places.key');
         $mapboxToken = (string) config('services.mapbox.token');
@@ -116,6 +118,10 @@ class ProspectingService
                     $lead->save();
                 }
             }
+
+            // Contacts, decision maker and context for the best-fit leads, in the background. Queued
+            // before "done" so the results the screen loads already show them as pending.
+            $this->enrichment->queueSearch($search);
 
             $search->update([
                 'status'        => 'done',
@@ -241,7 +247,11 @@ class ProspectingService
         ];
 
         if ($lead) {
-            // Refreshes the place data but keeps what was learned about the lead (score, AI insights).
+            // Refreshes the place data but keeps what was learned about the lead (score, AI insights,
+            // and the primary contact chosen by enrichment, which may not be Google's number).
+            if ($lead->enriched_at) {
+                unset($payload['telefone']);
+            }
             $lead->update($payload + ['ai_insights' => array_merge($lead->ai_insights ?? [], $placeInsights)]);
             return $lead->fresh();
         }

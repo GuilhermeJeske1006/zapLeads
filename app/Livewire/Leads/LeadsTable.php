@@ -5,6 +5,7 @@ namespace App\Livewire\Leads;
 use App\Models\Lead;
 use App\Models\Empresa;
 use App\Models\WhatsAppChannel;
+use App\Services\Enrichment\LeadEnrichmentService;
 use App\Services\GeoService;
 use App\Services\Prospecting\OutreachException;
 use App\Services\Prospecting\OutreachService;
@@ -232,6 +233,19 @@ class LeadsTable extends Component
         $this->channels = [];
     }
 
+    /** Looks for the lead's WhatsApp, decision maker and context in the background. */
+    public function buscarContatos(int $leadId): void
+    {
+        $lead = $this->empresa->leads()->find($leadId);
+        if (!$lead) {
+            return;
+        }
+
+        app(LeadEnrichmentService::class)->queue($lead);
+        $this->fecharModal();
+        $this->dispatch('toast', type: 'success', message: __('messages.enrichment_queued', ['nome' => $lead->nome]));
+    }
+
     /** "Ele respondeu": the lead answered a message the system didn't see. */
     public function registrarResposta(int $leadId): void
     {
@@ -266,6 +280,11 @@ class LeadsTable extends Component
         }
         $this->modalLead = $lead->toArray() + [
             'aguardando_resposta' => $lead->outreachAttempts()->whereNull('responded_at')->exists(),
+            'contatos'            => $lead->contacts()
+                ->orderByDesc('is_primary')
+                ->orderByDesc('confianca')
+                ->get(['tipo', 'valor', 'confianca', 'origem', 'evidencia', 'is_primary', 'provavel_decisor'])
+                ->toArray(),
         ];
         $this->showModal  = true;
     }

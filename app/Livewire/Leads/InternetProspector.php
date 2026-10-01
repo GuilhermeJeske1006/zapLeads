@@ -167,7 +167,12 @@ class InternetProspector extends Component
 
     public function pollSearch(): void
     {
-        if (!$this->buscando || !$this->searchId) {
+        if (!$this->buscando) {
+            $this->refreshEnrichment();
+            return;
+        }
+
+        if (!$this->searchId) {
             return;
         }
 
@@ -198,6 +203,30 @@ class InternetProspector extends Component
             'lat' => $search->latitude,
             'lng' => $search->longitude,
         ]);
+    }
+
+    /** Contacts found in the background replace what the list shows, while any lead is still being enriched. */
+    private function refreshEnrichment(): void
+    {
+        $pending = collect($this->resultados)
+            ->filter(fn (array $lead) => in_array($lead['enrichment_status'] ?? null, ['pending', 'running'], true))
+            ->pluck('id');
+
+        if ($pending->isEmpty()) {
+            return;
+        }
+
+        $fresh = $this->empresa->leads()
+            ->whereKey($pending)
+            ->get(['id', 'telefone', 'enrichment_status', 'contact_confidence', 'decisor_nome'])
+            ->keyBy('id');
+
+        foreach ($this->resultados as &$lead) {
+            if ($update = $fresh->get($lead['id'])) {
+                $lead = array_merge($lead, $update->only(['telefone', 'enrichment_status', 'contact_confidence', 'decisor_nome']));
+            }
+        }
+        unset($lead);
     }
 
     public function gerarAbordagem(int $leadId): void

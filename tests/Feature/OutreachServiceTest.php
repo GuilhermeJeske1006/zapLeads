@@ -245,6 +245,18 @@ class OutreachServiceTest extends TestCase
         $this->assertSame('interessado', $lead->fresh()->status);
     }
 
+    public function test_lead_without_probable_whatsapp_is_not_sent_through_the_api(): void
+    {
+        $this->channel($this->empresa);
+        $this->template(['1' => 'lead_nome']);
+        $lead = $this->lead('(47) 3322-1100');
+        $lead->update(['enrichment_status' => 'done', 'contact_confidence' => 20]);
+
+        $this->assertRefused('no_whatsapp', fn () => $this->outreach()->approve($this->draft($lead)));
+        $this->assertSame('blocked', $this->outreach()->deliveryPlan($this->draft($lead))['mode']);
+        $this->assertSame('assisted', $this->outreach()->markAssisted($this->draft($lead), 'Oi!')->canal);
+    }
+
     public function test_auto_send_schedules_the_message_once_written(): void
     {
         $this->ai('Oi!');

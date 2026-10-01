@@ -191,6 +191,7 @@
                         {{-- Telefone --}}
                         <td class="px-3 py-3">
                             <span class="text-gray-400 font-mono text-xs block truncate">{{ $lead->telefone ?: '—' }}</span>
+                            <x-contact-badge :status="$lead->enrichment_status" :confidence="$lead->contact_confidence" />
                             @if ($lead->website)
                                 <a href="{{ $lead->website }}" target="_blank" rel="noopener noreferrer"
                                    title="{{ $lead->website }}"
@@ -552,6 +553,50 @@
                             </a>
                         </div>
                     @endif
+
+                    @if (!empty($modalLead['decisor_nome']))
+                        <div class="bg-gray-800/60 rounded-xl p-3">
+                            <p class="text-xs text-gray-400 mb-0.5">{{ __('messages.decision_maker') }}</p>
+                            <p class="text-sm font-medium text-white">
+                                {{ $modalLead['decisor_nome'] }}
+                                @if (!empty($modalLead['decisor_cargo']))
+                                    <span class="text-gray-400 font-normal">· {{ $modalLead['decisor_cargo'] }}</span>
+                                @endif
+                            </p>
+                        </div>
+                    @endif
+
+                    <div class="bg-gray-800/60 rounded-xl p-3 space-y-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="text-xs text-gray-400">{{ __('messages.contacts_found') }}</p>
+                            <button wire:click="buscarContatos({{ $modalLead['id'] }})"
+                                    @disabled(in_array($modalLead['enrichment_status'] ?? null, ['pending', 'running'], true))
+                                    class="text-xs text-emerald-400 hover:text-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed
+                                           focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded">
+                                {{ __('messages.find_contacts') }}
+                            </button>
+                        </div>
+                        <x-contact-badge :status="$modalLead['enrichment_status'] ?? null" :confidence="$modalLead['contact_confidence'] ?? null" />
+                        @forelse ($modalLead['contatos'] ?? [] as $contato)
+                            <div class="flex items-start justify-between gap-3 text-xs">
+                                <div class="min-w-0">
+                                    <p class="text-gray-100 truncate">
+                                        {{ __('messages.contact_type_' . $contato['tipo']) }}: <span class="font-mono">{{ $contato['valor'] }}</span>
+                                        @if ($contato['is_primary']) <span class="text-emerald-400">· {{ __('messages.primary_contact') }}</span> @endif
+                                        @if ($contato['provavel_decisor']) <span class="text-violet-300">· {{ __('messages.probable_decision_maker') }}</span> @endif
+                                    </p>
+                                    <p class="text-gray-400 truncate" title="{{ $contato['evidencia'] }}">
+                                        {{ __('messages.contact_origin_' . $contato['origem']) }}@if ($contato['evidencia']) — {{ $contato['evidencia'] }}@endif
+                                    </p>
+                                </div>
+                                @if (in_array($contato['tipo'], ['whatsapp', 'telefone'], true))
+                                    <span class="shrink-0 text-gray-300" title="{{ __('messages.whatsapp_confidence_hint') }}">{{ $contato['confianca'] }}</span>
+                                @endif
+                            </div>
+                        @empty
+                            <p class="text-xs text-gray-400">{{ __('messages.no_contacts_yet') }}</p>
+                        @endforelse
+                    </div>
 
                     @if (!empty($modalLead['ai_insights']))
                         @php $ai = $modalLead['ai_insights']; @endphp

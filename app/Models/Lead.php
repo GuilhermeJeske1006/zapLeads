@@ -32,6 +32,21 @@ class Lead extends Model
         'status',
         'opted_out_at',
         'ai_insights',
+        'cnpj',
+        'razao_social',
+        'decisor_nome',
+        'decisor_cargo',
+        'porte',
+        'data_abertura',
+        'situacao_cadastral',
+        'instagram',
+        'email',
+        'business_status',
+        'horario_funcionamento',
+        'enrichment_status',
+        'enriched_at',
+        'contact_confidence',
+        'dossie',
     ];
 
     protected $casts = [
@@ -41,6 +56,11 @@ class Lead extends Model
         'is_nearby' => 'boolean',
         'opted_out_at' => 'datetime',
         'ai_insights' => 'array',
+        'data_abertura' => 'date',
+        'horario_funcionamento' => 'array',
+        'enriched_at' => 'datetime',
+        'contact_confidence' => 'integer',
+        'dossie' => 'array',
     ];
 
     protected static function booted(): void
@@ -71,6 +91,25 @@ class Lead extends Model
     public function conversations(): HasMany
     {
         return $this->hasMany(Conversation::class);
+    }
+
+    public function contacts(): HasMany
+    {
+        return $this->hasMany(LeadContact::class);
+    }
+
+    /** Enriched and no contact reached the minimum: only a call or the user's own WhatsApp. */
+    public function lacksProbableWhatsApp(): bool
+    {
+        return $this->enrichment_status === 'done'
+            && $this->contact_confidence !== null
+            && $this->contact_confidence < LeadContact::MIN_WHATSAPP_CONFIDENCE;
+    }
+
+    /** The AI match score from the search, until scoring v2 replaces lead_score. */
+    public function fitScore(): int
+    {
+        return (int) ($this->ai_insights['match_score'] ?? $this->lead_score ?? 0);
     }
 
     public function outreachAttempts(): HasMany

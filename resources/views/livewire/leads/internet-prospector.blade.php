@@ -243,6 +243,7 @@
                             {{-- Telefone --}}
                             <td class="px-3 py-3">
                                 <span class="text-gray-400 font-mono text-xs block truncate">{{ $lead['telefone'] ?: '—' }}</span>
+                                <x-contact-badge :status="$lead['enrichment_status'] ?? null" :confidence="$lead['contact_confidence'] ?? null" />
                                 @if ($website)
                                     <a href="{{ $website }}" target="_blank" rel="noopener noreferrer"
                                        title="{{ $website }}"

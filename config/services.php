@@ -47,6 +47,18 @@ return [
         'key' => env('GOOGLE_PLACES_API_KEY'),
     ],
 
+    'enrichment' => [
+        'top_n'                 => (int) env('ENRICHMENT_TOP_N', 30),        // leads enriched per search, best fit first
+        'paid_min_score'        => (int) env('ENRICHMENT_PAID_MIN_SCORE', 70), // fit needed for paid steps (web search, Lookup)
+        'web_research'          => (bool) env('ENRICHMENT_WEB_RESEARCH', false),
+        'web_research_max_uses' => (int) env('ENRICHMENT_WEB_RESEARCH_MAX_USES', 3),
+    ],
+
+    'cnpj' => [
+        // Tried in order: brasilapi, minhareceita.
+        'providers' => explode(',', env('CNPJ_PROVIDERS', 'brasilapi,minhareceita')),
+    ],
+
     'mapbox' => [
         'token' => env('MAPBOX_TOKEN'),
         'style' => env('MAPBOX_STYLE', 'mapbox/streets-v12'),

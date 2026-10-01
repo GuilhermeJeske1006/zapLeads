@@ -17,6 +17,7 @@ class OutreachException extends RuntimeException
         'session_closed'      => 'messages.outreach_session_closed',
         'template_incomplete' => 'messages.outreach_template_incomplete',
         'not_pending'         => 'messages.outreach_not_pending',
+        'no_whatsapp'         => 'messages.lead_no_whatsapp',
     ];
 
     public function __construct(public readonly string $reason)

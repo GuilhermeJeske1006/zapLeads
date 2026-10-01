@@ -121,6 +121,34 @@ class AIServiceTest extends TestCase
         $this->assertArrayNotHasKey('effort', $body['output_config']);
     }
 
+    public function test_web_research_returns_the_text_and_every_source_url(): void
+    {
+        $this->fakeClaude([new Response(200, ['Content-Type' => 'application/json'], json_encode([
+            'id' => 'msg_1', 'type' => 'message', 'role' => 'assistant', 'model' => 'claude-sonnet-5-5',
+            'content' => [
+                ['type' => 'server_tool_use', 'id' => 'srvtoolu_1', 'name' => 'web_search', 'input' => ['query' => 'Studio Bella Blumenau WhatsApp']],
+                ['type' => 'web_search_tool_result', 'tool_use_id' => 'srvtoolu_1', 'content' => [
+                    ['type' => 'web_search_result', 'url' => 'https://guiablumenau.com.br/studio-bella', 'title' => 'Studio Bella', 'encrypted_content' => 'x', 'page_age' => null],
+                ]],
+                ['type' => 'text', 'text' => 'O WhatsApp é (47) 99999-8888.', 'citations' => [
+                    ['type' => 'web_search_result_location', 'url' => 'https://www.instagram.com/studiobella.blu/', 'title' => 'Instagram', 'cited_text' => '99999-8888', 'encrypted_index' => 'y'],
+                ]],
+            ],
+            'stop_reason' => 'end_turn', 'stop_sequence' => null,
+            'usage' => ['input_tokens' => 900, 'output_tokens' => 80],
+        ]))]);
+        config(['services.enrichment.web_research_max_uses' => 2]);
+
+        $research = app(AIService::class)->pesquisarContatosNaWeb('Studio Bella', 'Blumenau', null);
+
+        $this->assertSame('O WhatsApp é (47) 99999-8888.', $research['texto']);
+        $this->assertSame(['https://guiablumenau.com.br/studio-bella', 'https://www.instagram.com/studiobella.blu/'], $research['urls']);
+        $body = $this->sentBody();
+        $this->assertSame('claude-sonnet-5-5', $body['model']);
+        $this->assertEquals([['type' => 'web_search_20260209', 'name' => 'web_search', 'max_uses' => 2]], $body['tools']);
+        $this->assertArrayNotHasKey('format', $body['output_config']);
+    }
+
     public function test_campaign_suggestion_is_not_cached_when_the_call_fails(): void
     {
         $this->fakeClaude([

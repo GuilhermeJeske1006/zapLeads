@@ -49,6 +49,21 @@ class OutreachService
     }
 
     /**
+     * The API sends only to probable WhatsApps: a lead whose enrichment found none can still be
+     * called, or tried from the user's own WhatsApp.
+     *
+     * @throws OutreachException
+     */
+    private function assertReachableByApi(Lead $lead): void
+    {
+        $this->assertReachable($lead);
+
+        if ($lead->lacksProbableWhatsApp()) {
+            throw new OutreachException('no_whatsapp');
+        }
+    }
+
+    /**
      * Puts the lead in the review queue; the message is written in the background. A lead already
      * in the queue keeps its draft. No channel is needed: the user may send it from their own WhatsApp.
      *
@@ -129,11 +144,11 @@ class OutreachService
             throw new OutreachException('empty_message');
         }
 
-        $this->assertReachable($draft->lead);
+        $this->assertReachableByApi($draft->lead);
         $channel = $this->channelFor($draft);
         $this->templateFor($draft);
 
-        $slot = $this->scheduler->nextSlot($channel);
+        $slot = $this->scheduler->nextSlot($channel, $draft->lead->horario_funcionamento);
 
         $draft->fill([
             'whatsapp_channel_id' => $channel->id,
@@ -158,7 +173,7 @@ class OutreachService
         $this->assertStatus($draft, 'approved');
 
         $lead = $draft->lead;
-        $this->assertReachable($lead);
+        $this->assertReachableByApi($lead);
         $channel = $this->channelFor($draft);
         $template = $this->templateFor($draft);
         $text = $template ? $template['template']->render($template['variables']) : $draft->texto_final;
@@ -274,7 +289,7 @@ class OutreachService
     public function deliveryPlan(OutreachDraft $draft): array
     {
         try {
-            $this->assertReachable($draft->lead);
+            $this->assertReachableByApi($draft->lead);
             $this->channelFor($draft);
             $template = $this->templateFor($draft);
         } catch (OutreachException $e) {

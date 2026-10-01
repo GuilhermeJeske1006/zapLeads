@@ -85,9 +85,35 @@ class DailyLimitTest extends TestCase
         $this->assertSame(18, app(OutreachScheduler::class)->usedToday($this->channel));
     }
 
-    private function nextLocalSlot(): CarbonImmutable
+    public function test_waits_for_the_lead_to_be_open(): void
     {
-        return app(OutreachScheduler::class)->nextSlot($this->channel)->setTimezone(self::TZ);
+        // Tuesday to Saturday, 10:00-12:00 and 14:00-19:00 (Google periods: day 0 = Sunday).
+        $hours = ['periods' => collect(range(2, 6))->flatMap(fn (int $day) => [
+            ['open' => ['day' => $day, 'hour' => 10, 'minute' => 0], 'close' => ['day' => $day, 'hour' => 12, 'minute' => 0]],
+            ['open' => ['day' => $day, 'hour' => 14, 'minute' => 0], 'close' => ['day' => $day, 'hour' => 19, 'minute' => 0]],
+        ])->all()];
+
+        $this->travelToLocal('2026-10-05 09:30'); // Monday: closed
+        $this->assertSame('2026-10-06 10:0', substr($this->nextLocalSlot($hours)->format('Y-m-d H:i'), 0, 15));
+
+        $this->travelToLocal('2026-10-06 12:30'); // Tuesday lunch
+        $this->assertSame('2026-10-06 14:0', substr($this->nextLocalSlot($hours)->format('Y-m-d H:i'), 0, 15));
+
+        $this->travelToLocal('2026-10-10 12:30'); // Saturday afternoon is still off for us
+        $this->assertSame('2026-10-13 10:0', substr($this->nextLocalSlot($hours)->format('Y-m-d H:i'), 0, 15));
+    }
+
+    public function test_unknown_or_round_the_clock_hours_keep_ours(): void
+    {
+        $this->travelToLocal('2026-10-05 09:30');
+
+        $this->assertSame('2026-10-05 09:30', $this->nextLocalSlot(['periods' => [['open' => ['day' => 0, 'hour' => 0, 'minute' => 0]]]])->format('Y-m-d H:i'));
+        $this->assertSame('2026-10-05 09:30', $this->nextLocalSlot(['weekdayDescriptions' => []])->format('Y-m-d H:i'));
+    }
+
+    private function nextLocalSlot(?array $openingHours = null): CarbonImmutable
+    {
+        return app(OutreachScheduler::class)->nextSlot($this->channel, $openingHours)->setTimezone(self::TZ);
     }
 
     private function travelToLocal(string $datetime): void

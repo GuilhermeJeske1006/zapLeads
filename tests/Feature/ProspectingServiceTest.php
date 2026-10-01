@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\EnrichLeadJob;
 use App\Models\Empresa;
 use App\Models\Lead;
 use App\Models\ProspectingSearch;
@@ -9,7 +10,9 @@ use App\Models\User;
 use App\Services\AIService;
 use App\Services\Prospecting\ProspectingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Bus\PendingBatch;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 use Mockery;
 use Tests\TestCase;
@@ -28,6 +31,7 @@ class ProspectingServiceTest extends TestCase
         parent::setUp();
 
         config(['services.google_places.key' => 'test-key']);
+        Bus::fake();
         $this->empresa = Empresa::create(['user_id' => User::factory()->create()->id, 'nome' => 'Embalagens SC', 'cidade' => 'Blumenau']);
     }
 
@@ -93,6 +97,44 @@ class ProspectingServiceTest extends TestCase
         $this->assertSame($search->id, $lead->prospecting_search_id);
         $this->assertSame(90, $lead->ai_insights['match_score']);
         $this->assertSame(4.8, $lead->ai_insights['rating']);
+    }
+
+    public function test_queues_enrichment_of_the_best_fit_leads_not_enriched_recently(): void
+    {
+        config(['services.enrichment.top_n' => 2]);
+        Lead::create([
+            'empresa_id' => $this->empresa->id, 'nome' => 'Já enriquecida', 'telefone' => '', 'source' => 'internet',
+            'external_source' => 'google_places', 'external_id' => 'P1', 'enriched_at' => now()->subDays(3),
+        ]);
+        $ai = Mockery::mock(AIService::class);
+        $ai->shouldReceive('gerarKeywordsProspeccao')->andReturn(['padaria']);
+        $ai->shouldReceive('buscarLeadsPorPerfil')->andReturnUsing(fn ($d, $t, array $leads) => array_map(
+            fn (array $lead) => ['id' => $lead['id'], 'match_score' => (int) substr($lead['external_id'], 1) * 10, 'match_motivo' => 'ok'],
+            $leads,
+        ));
+        $this->app->instance(AIService::class, $ai);
+        $this->fakePlaces(['padaria' => [$this->places('P', 4)]]);
+
+        $this->runSearch();
+
+        $expected = Lead::whereIn('external_id', ['P4', 'P3'])->orderByDesc('external_id')->pluck('id')->all();
+        Bus::assertBatched(fn (PendingBatch $batch) => $batch->queue() === 'enrichment'
+            && array_map(fn (EnrichLeadJob $job) => $job->leadId, $batch->jobs->all()) === $expected);
+        $this->assertSame(['P3', 'P4'], Lead::where('enrichment_status', 'pending')->orderBy('external_id')->pluck('external_id')->all());
+    }
+
+    public function test_new_search_keeps_the_phone_chosen_by_enrichment(): void
+    {
+        $lead = Lead::create([
+            'empresa_id' => $this->empresa->id, 'nome' => 'Padaria Central', 'telefone' => '(47) 99999-8888', 'source' => 'internet',
+            'external_source' => 'google_places', 'external_id' => 'P1', 'enriched_at' => now()->subDay(),
+        ]);
+        $this->keywords(['padaria']);
+        $this->fakePlaces(['padaria' => [[$this->place('P1', 0.01) + ['internationalPhoneNumber' => '+55 47 3322-1100']]]]);
+
+        $this->runSearch();
+
+        $this->assertSame('(47) 99999-8888', $lead->fresh()->telefone);
     }
 
     private function runSearch(float $radiusKm = 5, int $maxResults = 60): ProspectingSearch

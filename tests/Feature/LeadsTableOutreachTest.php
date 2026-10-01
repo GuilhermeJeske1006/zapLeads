@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\EnrichLeadJob;
+use App\Livewire\Leads\InternetProspector;
 use App\Livewire\Leads\LeadsTable;
 use App\Models\Empresa;
 use App\Models\Lead;
+use App\Models\LeadContact;
 use App\Models\OutreachAttempt;
 use App\Models\OutreachDraft;
 use App\Models\User;
@@ -67,6 +70,38 @@ class LeadsTableOutreachTest extends TestCase
 
         $this->assertNotNull(OutreachAttempt::sole()->responded_at);
         $this->assertSame('interessado', $this->lead->fresh()->status);
+    }
+
+    public function test_contacts_are_searched_on_demand_and_listed_with_their_origin(): void
+    {
+        LeadContact::create([
+            'lead_id' => $this->lead->id, 'empresa_id' => $this->empresa->id, 'tipo' => 'whatsapp', 'valor' => '+5547999998888',
+            'valor_e164' => '+5547999998888', 'line_type' => 'mobile', 'origem' => 'website_wa_link', 'confianca' => 95,
+            'is_primary' => true, 'evidencia' => 'link de WhatsApp em https://studiobella.com.br',
+        ]);
+
+        Livewire::test(LeadsTable::class, ['empresa' => $this->empresa])
+            ->call('abrirModal', $this->lead->id)
+            ->assertSee('link de WhatsApp em https://studiobella.com.br')
+            ->assertSee(__('messages.contact_origin_website_wa_link'))
+            ->call('buscarContatos', $this->lead->id)
+            ->assertDispatched('toast', type: 'success');
+
+        $this->assertSame('pending', $this->lead->fresh()->enrichment_status);
+        Queue::assertPushedOn('enrichment', EnrichLeadJob::class);
+    }
+
+    public function test_prospector_list_follows_enrichment_in_the_background(): void
+    {
+        $this->lead->update(['enrichment_status' => 'pending']);
+        $component = Livewire::test(InternetProspector::class, ['empresa' => $this->empresa])
+            ->set('resultados', [$this->lead->fresh()->toArray()]);
+
+        $this->lead->update(['enrichment_status' => 'done', 'contact_confidence' => 20]);
+        $component->call('pollSearch');
+
+        $this->assertSame(['done', 20], [$component->get('resultados')[0]['enrichment_status'], $component->get('resultados')[0]['contact_confidence']]);
+        $component->assertSee(__('messages.no_whatsapp_call'));
     }
 
     private function channel(string $numero, bool $isDefault = false): WhatsAppChannel

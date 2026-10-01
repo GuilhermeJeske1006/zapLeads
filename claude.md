@@ -17,7 +17,7 @@ Multi-tenant (one `Empresa` per user). Onboarding wizard before app access.
 ```bash
 php artisan serve       # http://localhost:8000
 npm run dev             # Vite HMR
-php artisan queue:work  # jobs (sequence steps, follow-ups, auto-respond)
+php artisan queue:work --queue=default,enrichment  # jobs; "enrichment" runs lead enrichment
 ```
 
 Migrate + seed: `php artisan migrate --seed`
@@ -34,6 +34,9 @@ Master admin: `php artisan make:master-admin`
 ```
 ANTHROPIC_API_KEY=
 MAPBOX_TOKEN=
+GOOGLE_PLACES_API_KEY=           # prospecting + Place Details
+ENRICHMENT_WEB_RESEARCH=false    # web search on Claude, US$ 10 / 1,000 searches
+TWILIO_LOOKUP_ENABLED=false      # line type lookup, paid per query
 TWILIO_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_WEBHOOK_VALIDATE=true   # "false" only outside production
@@ -98,6 +101,8 @@ app/
     Geo/GeocodingService.php
     Prospecting/ProspectingService.php
     Prospecting/Providers/     # GooglePlacesProvider, MapboxPlacesProvider
+    Prospecting/OutreachService.php  # review queue, 24h window, templates
+    Enrichment/                # LeadEnrichmentService + Steps/ (Place Details, site, CNPJ, web research, Lookup, resolver)
   Jobs/
     SendWhatsAppMessageJob.php
     FollowUpWhatsAppJob.php    # 24h delay follow-up
@@ -145,4 +150,6 @@ Webhook: `POST /webhook/twilio` — receives inbound messages, fires `NewMessage
 - `Empresa` scopes all tenant data — always filter by `empresa_id`
 - Public catalog routes are guest-accessible; everything else requires auth + onboarding
 - AI: every Claude call goes through `AIService` (`structured()` for JSON via structured outputs, `text()` for prose) with a tier — `fast` (Haiku: keywords, ranking, classification; never pass effort) or `quality` (Sonnet 5.5: messages people read; effort `low`, maxTokens ≥ 2000 since thinking counts). Clamp numbers yourself: schemas can't express min/max. Tests fake the API with a Guzzle `MockHandler` transporter bound to `Anthropic\Client`.
+- Lead enrichment: `LeadEnrichmentService` runs `Services/Enrichment/Steps` as a cascade; steps add `ContactSignal`s to the context and `ContactResolverStep` writes `lead_contacts` (origem + evidencia on every contact, for LGPD) and picks the primary, which becomes `leads.telefone`. Paid steps (web search, Twilio Lookup) are off by default and only run for good leads.
+- Fetch URLs we don't control (lead sites, anything typed by users) only through `App\Support\Net\SafeHttp` (SSRF: public IPs only, pinned, redirects checked, 1 MB cap).
 - Phones: match, dedupe and send by `telefone_e164` (`App\Support\Phone::canonical()`, read with `empresas.country`); `telefone` keeps the raw input. Never compare raw `telefone` strings. `Lead`/`Conversation` fill `telefone_e164` on save; `php artisan leads:normalize-phones` re-runs the backfill.

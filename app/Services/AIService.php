@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Anthropic\Beta\Messages\BetaWebSearchTool20260209;
 use Anthropic\Client as AnthropicClient;
 use App\Models\Conversation;
 use App\Models\Empresa;
@@ -243,6 +244,74 @@ PROMPT;
     }
 
     /**
+     * Searches the web for contacts the business itself published (WhatsApp, Instagram, owner).
+     * Structured outputs can't be combined with citations, so the facts are pulled out in a second
+     * call (extrairContatosDaPesquisa). Null when the search failed.
+     *
+     * @return array{texto: string, urls: list<string>}|null
+     */
+    public function pesquisarContatosNaWeb(string $nome, ?string $cidade, ?string $site): ?array
+    {
+        $alvo = trim($nome . ($cidade ? " em {$cidade}" : '') . ($site ? " (site: {$site})" : ''));
+
+        $response = $this->send(
+            'quality',
+            'Você pesquisa dados de contato comerciais que uma empresa publicou sobre si mesma (site oficial, perfil oficial em rede social, Google, guias comerciais). Não invente dados: se não encontrar, diga que não encontrou. Cite a URL pública de cada dado.',
+            "Encontre o WhatsApp comercial publicado, o Instagram oficial e o nome do proprietário de {$alvo}. Para cada dado, informe a URL onde ele aparece.",
+            4000,
+            'low',
+            tools: [BetaWebSearchTool20260209::with(maxUses: (int) config('services.enrichment.web_research_max_uses', 3))],
+        );
+
+        if ($response === null || trim($response['text']) === '') {
+            return null;
+        }
+
+        return ['texto' => $response['text'], 'urls' => $response['urls']];
+    }
+
+    /**
+     * Contacts stated in a research answer, each with the URL given as its source. The caller keeps
+     * only those whose URL the search really returned.
+     *
+     * @return list<array{tipo: string, valor: string, evidencia_url: string}>
+     */
+    public function extrairContatosDaPesquisa(string $texto, array $urls): array
+    {
+        $result = $this->structured(
+            'fast',
+            'Você extrai dados de contato de um texto de pesquisa. Copie apenas o que o texto afirma, com a URL que o texto dá como fonte daquele dado. Sem URL, não inclua o item.',
+            "Fontes consultadas:\n" . implode("\n", $urls) . "\n\nTexto da pesquisa:\n<pesquisa>{$texto}</pesquisa>",
+            [
+                'type' => 'object',
+                'properties' => [
+                    'itens' => [
+                        'type' => 'array',
+                        'items' => [
+                            'type' => 'object',
+                            'properties' => [
+                                'tipo'          => ['type' => 'string', 'enum' => ['whatsapp', 'telefone', 'instagram', 'email', 'proprietario']],
+                                'valor'         => ['type' => 'string'],
+                                'evidencia_url' => ['type' => 'string'],
+                            ],
+                            'required' => ['tipo', 'valor', 'evidencia_url'],
+                            'additionalProperties' => false,
+                        ],
+                    ],
+                ],
+                'required' => ['itens'],
+                'additionalProperties' => false,
+            ],
+            1500,
+        );
+
+        return array_values(array_filter(
+            $result['itens'] ?? [],
+            fn ($item) => is_array($item) && trim((string) ($item['valor'] ?? '')) !== '' && trim((string) ($item['evidencia_url'] ?? '')) !== '',
+        ));
+    }
+
+    /**
      * Answer as an array validated against $schema (structured outputs), or null when the call
      * failed. The schema can't express minimum/maximum: clamp numbers yourself. $effort is for the
      * quality tier only (Haiku 4.5 rejects it).
@@ -271,11 +340,12 @@ PROMPT;
 
     /**
      * One Messages API call. Null when it failed, was refused or was cut by max_tokens: a truncated
-     * answer is worse than none.
+     * answer is worse than none. With server tools (web search), urls lists every page the search
+     * returned or the answer cited.
      *
-     * @return array{text: string, usage: array{input_tokens: int, output_tokens: int, cache_read_input_tokens: int, cache_creation_input_tokens: int}}|null
+     * @return array{text: string, urls: list<string>, usage: array{input_tokens: int, output_tokens: int, cache_read_input_tokens: int, cache_creation_input_tokens: int}}|null
      */
-    protected function send(string $tier, string|array $system, string $prompt, int $maxTokens, ?string $effort = null, ?array $schema = null): ?array
+    protected function send(string $tier, string|array $system, string $prompt, int $maxTokens, ?string $effort = null, ?array $schema = null, array $tools = []): ?array
     {
         $model = (string) config("services.anthropic.models.{$tier}");
         $outputConfig = array_filter([
@@ -290,6 +360,7 @@ PROMPT;
                 'system'       => $system,
                 'messages'     => [['role' => 'user', 'content' => $prompt]],
                 'outputConfig' => $outputConfig ?: null,
+                'tools'        => $tools ?: null,
                 ...$this->fallbacks($model),
             ]);
         } catch (\Throwable $e) {
@@ -302,18 +373,29 @@ PROMPT;
             return null;
         }
 
-        // After a refusal fallback, only the text produced after the last switch is the answer.
+        // After a refusal fallback, only what was produced after the last switch is the answer.
         $text = '';
+        $urls = [];
         foreach ($message->content as $block) {
             if ($block->type === 'fallback') {
                 $text = '';
+                $urls = [];
             } elseif ($block->type === 'text') {
                 $text .= $block->text;
+                foreach ($block->citations ?? [] as $citation) {
+                    $urls[] = $citation->url ?? null;
+                }
+            } elseif ($block->type === 'web_search_tool_result' && is_array($block->content)) {
+                // A failed search returns an error object here instead of a list.
+                foreach ($block->content as $result) {
+                    $urls[] = $result->url ?? null;
+                }
             }
         }
 
         return [
             'text' => $text,
+            'urls' => array_values(array_unique(array_filter($urls))),
             'usage' => [
                 'input_tokens'                => $message->usage->inputTokens,
                 'output_tokens'               => $message->usage->outputTokens,
