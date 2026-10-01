@@ -142,3 +142,4 @@ Webhook: `POST /webhook/twilio` — receives inbound messages, fires `NewMessage
 - Jobs dispatched from Services, not Controllers
 - `Empresa` scopes all tenant data — always filter by `empresa_id`
 - Public catalog routes are guest-accessible; everything else requires auth + onboarding
+- Phones: match, dedupe and send by `telefone_e164` (`App\Support\Phone::canonical()`, read with `empresas.country`); `telefone` keeps the raw input. Never compare raw `telefone` strings. `Lead`/`Conversation` fill `telefone_e164` on save; `php artisan leads:normalize-phones` re-runs the backfill.

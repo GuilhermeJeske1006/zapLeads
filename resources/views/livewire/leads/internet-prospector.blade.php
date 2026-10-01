@@ -207,11 +207,7 @@
                                          : ($matchScore >= 50 ? 'text-yellow-400 bg-yellow-500/20'
                                          : 'text-gray-500 bg-gray-700/50');
 
-                            $phone = preg_replace('/\D/', '', (string) ($lead['telefone'] ?? ''));
-                            if ($phone && !str_starts_with($phone, '55') && strlen($phone) <= 11) {
-                                $phone = '55' . $phone;
-                            }
-                            $waLink  = $phone ? 'https://wa.me/' . $phone : null;
+                            $waLink  = \App\Support\Phone::waMeLink($lead['telefone'] ?? null, $empresa->country);
                             $website = !empty($lead['website']) ? $lead['website'] : null;
 
                             $status      = $lead['status'] ?? 'novo';
@@ -493,9 +489,7 @@
             {{-- Footer actions --}}
             <div class="flex items-center gap-2 px-6 py-4 border-t border-gray-800 bg-gray-900/50">
                 @php
-                    $mPhone = preg_replace('/\D/', '', (string)($modalLead['telefone'] ?? ''));
-                    if ($mPhone && !str_starts_with($mPhone, '55') && strlen($mPhone) <= 11) { $mPhone = '55'.$mPhone; }
-                    $mWaLink = $mPhone ? 'https://wa.me/'.$mPhone : null;
+                    $mWaLink = \App\Support\Phone::waMeLink($modalLead['telefone'] ?? null, $empresa->country);
                 @endphp
 
                 @if ($mWaLink)

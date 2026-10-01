@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Conversation;
 use App\Models\Empresa;
+use App\Models\Lead;
 use App\Models\User;
 use App\Models\WhatsAppChannel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -100,6 +101,36 @@ class TwilioWebhookTest extends TestCase
         $this->assertDatabaseCount('conversations', 0);
     }
 
+    public function test_message_without_ninth_digit_joins_existing_conversation(): void
+    {
+        $empresa = $this->empresa();
+        $channel = $this->channel($empresa, 'whatsapp:+5547900000001');
+        $conversation = Conversation::create([
+            'empresa_id'          => $empresa->id,
+            'telefone'            => '+55 47 99280-1006',
+            'whatsapp_channel_id' => $channel->id,
+            'status'              => 'active',
+        ]);
+
+        $this->signedPost($this->inbound('whatsapp:+5547900000001', from: 'whatsapp:+554792801006'))->assertNoContent();
+
+        $this->assertSame($conversation->id, Conversation::sole()->id);
+        $this->assertSame(1, $conversation->messages()->count());
+    }
+
+    public function test_opt_out_matches_lead_saved_in_another_format(): void
+    {
+        $empresa = $this->empresa();
+        $this->channel($empresa, 'whatsapp:+5547900000001');
+        $lead = Lead::create(['empresa_id' => $empresa->id, 'nome' => 'Studio Bella', 'telefone' => '+55 47 99280-1006']);
+
+        $this->signedPost($this->inbound('whatsapp:+5547900000001', from: 'whatsapp:+554792801006', body: 'Sair'))
+            ->assertNoContent();
+
+        $this->assertTrue($lead->fresh()->isOptedOut());
+        $this->assertSame('blocked', Conversation::sole()->status);
+    }
+
     private function signedPost(array $params): TestResponse
     {
         $url = route('webhook.twilio');
@@ -108,12 +139,12 @@ class TwilioWebhookTest extends TestCase
         return $this->post($url, $params, ['X-Twilio-Signature' => $signature]);
     }
 
-    private function inbound(string $to): array
+    private function inbound(string $to, string $from = 'whatsapp:+5547911112222', string $body = 'Oi, tudo bem?'): array
     {
         return [
-            'From'        => 'whatsapp:+5547911112222',
+            'From'        => $from,
             'To'          => $to,
-            'Body'        => 'Oi, tudo bem?',
+            'Body'        => $body,
             'MessageSid'  => 'SM' . Str::random(32),
             'ProfileName' => 'Cliente',
         ];

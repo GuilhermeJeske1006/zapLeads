@@ -8,6 +8,7 @@ use App\Models\Lead;
 use App\Models\Empresa;
 use App\Models\Sequence;
 use App\Models\SequenceEnrollment;
+use App\Support\Phone;
 
 class LeadService
 {
@@ -59,9 +60,15 @@ class LeadService
             $score = $this->geoService->calcularLeadScore($distancia, $empresa->raio_atendimento);
         }
 
+        // Same contact typed in another format must update the existing lead, not create one.
+        $e164 = Phone::canonical($data['telefone'], $empresa->country);
+
         $lead = Lead::updateOrCreate(
-            ['empresa_id' => $empresa->id, 'telefone' => $data['telefone']],
+            $e164
+                ? ['empresa_id' => $empresa->id, 'telefone_e164' => $e164]
+                : ['empresa_id' => $empresa->id, 'telefone' => $data['telefone']],
             [
+                'telefone' => $data['telefone'],
                 'nome' => $data['nome'],
                 'latitude' => $data['latitude'] ?? null,
                 'longitude' => $data['longitude'] ?? null,

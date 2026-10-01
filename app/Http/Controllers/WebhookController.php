@@ -11,6 +11,7 @@ use App\Models\Empresa;
 use App\Models\Message;
 use App\Models\SequenceEnrollment;
 use App\Models\WhatsAppChannel;
+use App\Support\Phone;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
@@ -49,7 +50,11 @@ class WebhookController extends Controller
             return;
         }
 
-        $phone = preg_replace('/\D/', '', $rawFrom);
+        // Twilio sends E.164; canonical() also restores the 9th digit Brazilian mobiles arrive without.
+        $phone = Phone::canonical($rawFrom);
+        if ($phone === null) {
+            return;
+        }
 
         $channel = $this->resolveInboundChannel($toNumber, $phone);
 
@@ -61,8 +66,9 @@ class WebhookController extends Controller
         $empresa = $channel->empresa;
 
         $conversation = Conversation::firstOrCreate(
-            ['empresa_id' => $empresa->id, 'telefone' => $phone],
+            ['empresa_id' => $empresa->id, 'telefone_e164' => $phone],
             [
+                'telefone'            => $phone,
                 'nome_contato'        => $profileName,
                 'whatsapp_channel_id' => $channel->id,
                 'status'              => 'active',
@@ -116,7 +122,7 @@ class WebhookController extends Controller
         // Several empresas registered the same number (e.g. the Twilio sandbox in dev):
         // route to the one already talking to this contact, or drop.
         $empresaId = Conversation::whereIn('empresa_id', $channels->pluck('empresa_id'))
-            ->where('telefone', $phone)
+            ->where('telefone_e164', $phone)
             ->orderByDesc('last_message_at')
             ->value('empresa_id');
 
@@ -156,17 +162,23 @@ class WebhookController extends Controller
             return;
         }
 
-        $lead = Lead::where('empresa_id', $empresa->id)->where('telefone', $phone)->first();
+        // Every lead of this empresa with the number, whatever format it was saved in.
+        $leadIds = Lead::where('empresa_id', $empresa->id)
+            ->where('telefone_e164', $phone)
+            ->whereNull('opted_out_at')
+            ->pluck('id');
 
-        if ($lead && !$lead->isOptedOut()) {
-            $lead->update(['opted_out_at' => now()]);
-            $conversation->update(['status' => 'blocked']);
-
-            SequenceEnrollment::where('lead_id', $lead->id)
-                ->where('status', 'active')
-                ->update(['status' => 'opted_out']);
-
-            Log::info('Lead opted out', ['lead_id' => $lead->id, 'phone' => $phone]);
+        if ($leadIds->isEmpty()) {
+            return;
         }
+
+        Lead::whereKey($leadIds)->update(['opted_out_at' => now()]);
+        $conversation->update(['status' => 'blocked']);
+
+        SequenceEnrollment::whereIn('lead_id', $leadIds)
+            ->where('status', 'active')
+            ->update(['status' => 'opted_out']);
+
+        Log::info('Lead opted out', ['lead_ids' => $leadIds->all(), 'phone' => $phone]);
     }
 }

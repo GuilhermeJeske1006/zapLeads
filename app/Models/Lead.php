@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Phone;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,6 +17,7 @@ class Lead extends Model
         'prospecting_search_id',
         'nome',
         'telefone',
+        'telefone_e164',
         'source',
         'external_source',
         'external_id',
@@ -40,6 +42,16 @@ class Lead extends Model
         'opted_out_at' => 'datetime',
         'ai_insights' => 'array',
     ];
+
+    protected static function booted(): void
+    {
+        // telefone keeps what the user/source typed; telefone_e164 is what we match and send to.
+        static::saving(function (Lead $lead) {
+            if ($lead->isDirty('telefone') && !$lead->isDirty('telefone_e164')) {
+                $lead->telefone_e164 = Phone::canonical($lead->telefone, $lead->empresa?->country ?? 'BR');
+            }
+        });
+    }
 
     public function isOptedOut(): bool
     {

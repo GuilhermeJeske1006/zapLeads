@@ -87,6 +87,41 @@ class WhatsAppServiceTenantTest extends TestCase
         $this->assertTrue($result['success']);
     }
 
+    public function test_opt_out_matches_lead_saved_in_another_format(): void
+    {
+        $empresa = $this->empresa();
+        $channel = $this->channel($empresa, 'whatsapp:+5547900000001');
+        $this->optedOutLead($empresa, '+55 47 99280-1006');
+
+        $result = $this->serviceExpectingSends(0)->sendTextMessage('554792801006', 'Oi', $empresa->id, $channel);
+
+        $this->assertSame('opted_out', $result['error']);
+    }
+
+    public function test_sends_to_canonical_number(): void
+    {
+        $empresa = $this->empresa();
+        $channel = $this->channel($empresa, 'whatsapp:+5547900000001');
+
+        $service = Mockery::mock(WhatsAppService::class)->makePartial()->shouldAllowMockingProtectedMethods();
+        $service->shouldReceive('createMessage')
+            ->once()
+            ->with('whatsapp:+5547992801006', Mockery::type('array'))
+            ->andReturn(['sid' => 'SM1', 'status' => 'queued']);
+
+        $this->assertTrue($service->sendTextMessage('(47) 99280-1006', 'Oi', $empresa->id, $channel)['success']);
+    }
+
+    public function test_unreadable_phone_is_not_sent(): void
+    {
+        $empresa = $this->empresa();
+        $channel = $this->channel($empresa, 'whatsapp:+5547900000001');
+
+        $result = $this->serviceExpectingSends(0)->sendTextMessage('99280-10', 'Oi', $empresa->id, $channel);
+
+        $this->assertSame('invalid_phone', $result['error']);
+    }
+
     private function serviceExpectingSends(int $times): WhatsAppService
     {
         $service = Mockery::mock(WhatsAppService::class)->makePartial()->shouldAllowMockingProtectedMethods();

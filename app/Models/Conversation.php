@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Phone;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\WhatsAppChannel;
@@ -13,13 +14,22 @@ class Conversation extends Model
     use HasFactory;
 
     protected $fillable = [
-        'empresa_id', 'whatsapp_channel_id', 'lead_id', 'telefone', 'nome_contato',
+        'empresa_id', 'whatsapp_channel_id', 'lead_id', 'telefone', 'telefone_e164', 'nome_contato',
         'last_message', 'last_message_at', 'unread_count', 'status',
     ];
 
     protected $casts = [
         'last_message_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (Conversation $conversation) {
+            if ($conversation->isDirty('telefone') && !$conversation->isDirty('telefone_e164')) {
+                $conversation->telefone_e164 = Phone::canonical($conversation->telefone, $conversation->empresa?->country ?? 'BR');
+            }
+        });
+    }
 
     public function empresa(): BelongsTo
     {

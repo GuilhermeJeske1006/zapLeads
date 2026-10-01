@@ -43,6 +43,19 @@ class InternetProspectorSendTest extends TestCase
         Queue::assertNothingPushed();
     }
 
+    public function test_does_not_message_lead_with_unreadable_phone(): void
+    {
+        [$empresa, $lead] = $this->empresaWithLead();
+        $lead->update(['telefone' => '9280-1006']);
+        $empresa->whatsappChannels()->create(['nome' => 'Vendas', 'numero' => 'whatsapp:+5547900000001', 'is_default' => true, 'ativo' => true]);
+
+        Livewire::test(InternetProspector::class, ['empresa' => $empresa])
+            ->call('enviarMensagemIA', $lead->id)
+            ->assertDispatched('toast', type: 'error', message: __('messages.lead_invalid_phone'));
+
+        $this->assertDatabaseCount('conversations', 0);
+    }
+
     /** @return array{Empresa, Lead} */
     private function empresaWithLead(): array
     {

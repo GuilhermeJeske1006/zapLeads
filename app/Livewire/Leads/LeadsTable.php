@@ -195,6 +195,11 @@ class LeadsTable extends Component
             return;
         }
 
+        if (!$lead->telefone_e164) {
+            $this->dispatch('toast', type: 'error', message: __('messages.lead_invalid_phone'));
+            return;
+        }
+
         if (method_exists($lead, 'isOptedOut') && $lead->isOptedOut()) {
             $this->dispatch('toast', type: 'error', message: __('messages.lead_opted_out'));
             return;
@@ -255,8 +260,8 @@ class LeadsTable extends Component
         $lead = $this->empresa->leads()->findOrFail($leadId);
 
         $conversation = Conversation::firstOrCreate(
-            ['empresa_id' => $this->empresa->id, 'telefone' => $lead->telefone],
-            ['lead_id' => $lead->id, 'nome_contato' => $lead->nome, 'status' => 'active', 'whatsapp_channel_id' => $channel->id]
+            ['empresa_id' => $this->empresa->id, 'telefone_e164' => $lead->telefone_e164],
+            ['telefone' => $lead->telefone, 'lead_id' => $lead->id, 'nome_contato' => $lead->nome, 'status' => 'active', 'whatsapp_channel_id' => $channel->id]
         );
 
         if (!$conversation->whatsapp_channel_id) {

@@ -6,6 +6,7 @@ use App\Models\Empresa;
 use App\Models\Lead;
 use App\Models\MessageLog;
 use App\Models\WhatsAppChannel;
+use App\Support\Phone;
 use Illuminate\Support\Facades\Log;
 use Twilio\Rest\Client;
 
@@ -15,8 +16,6 @@ class WhatsAppService
 
     public function sendTextMessage(string $phone, string $message, ?int $empresaId = null, ?WhatsAppChannel $channel = null): array
     {
-        $phone = $this->normalizePhone($phone);
-
         $channel = $this->resolveChannel($channel, $empresaId);
         if (!$channel) {
             return ['success' => false, 'error' => 'no_channel'];
@@ -25,7 +24,12 @@ class WhatsAppService
         $empresaId = (int) $channel->empresa_id;
         $from = $this->resolveFrom($channel);
 
-        if ($this->findLeadByPhone($phone, $empresaId)?->isOptedOut()) {
+        $phone = $this->dialable($phone, $channel);
+        if ($phone === null) {
+            return ['success' => false, 'error' => 'invalid_phone'];
+        }
+
+        if ($this->isOptedOut($phone, $empresaId)) {
             Log::info('Opted-out lead, skipping send', ['phone' => $phone, 'empresa_id' => $empresaId]);
             return ['success' => false, 'error' => 'opted_out'];
         }
@@ -52,8 +56,6 @@ class WhatsAppService
 
     public function sendImageMessage(string $phone, string $imageUrl, string $caption = '', ?int $empresaId = null, ?WhatsAppChannel $channel = null): array
     {
-        $phone = $this->normalizePhone($phone);
-
         $channel = $this->resolveChannel($channel, $empresaId);
         if (!$channel) {
             return ['success' => false, 'error' => 'no_channel'];
@@ -62,7 +64,12 @@ class WhatsAppService
         $empresaId = (int) $channel->empresa_id;
         $from = $this->resolveFrom($channel);
 
-        if ($this->findLeadByPhone($phone, $empresaId)?->isOptedOut()) {
+        $phone = $this->dialable($phone, $channel);
+        if ($phone === null) {
+            return ['success' => false, 'error' => 'invalid_phone'];
+        }
+
+        if ($this->isOptedOut($phone, $empresaId)) {
             Log::info('Opted-out lead, skipping send', ['phone' => $phone, 'empresa_id' => $empresaId]);
             return ['success' => false, 'error' => 'opted_out'];
         }
@@ -193,36 +200,25 @@ class WhatsAppService
         return $template;
     }
 
-    private function normalizePhone(string $phone): string
+    /** The number in E.164, read with the empresa's country; null when it can't be dialed. */
+    private function dialable(string $phone, WhatsAppChannel $channel): ?string
     {
-        $phone = preg_replace('/\D/', '', $phone);
+        $e164 = Phone::canonical($phone, $channel->empresa?->country ?? 'BR');
 
-        // Already has a known country code — keep it.
-        if (str_starts_with($phone, '55') || str_starts_with($phone, '54')) {
-            return '+' . $phone;
+        if ($e164 === null) {
+            Log::warning('WhatsApp send skipped: invalid phone', ['phone' => $phone, 'empresa_id' => $channel->empresa_id]);
         }
 
-        // Argentina: 10-digit numbers (2-digit area + 8-digit local).
-        if (strlen($phone) === 10) {
-            return '+54' . $phone;
-        }
-
-        // Brazil: 10 or 11 digits (2-digit DDD + 8 or 9-digit local).
-        return '+55' . $phone;
+        return $e164;
     }
 
-    private function findLeadByPhone(string $normalizedPhone, int $empresaId): ?Lead
+    private function isOptedOut(string $e164, int $empresaId): bool
     {
-        $digits = preg_replace('/\D/', '', $normalizedPhone);
-        $withoutCountry = str_starts_with($digits, '55') ? substr($digits, 2) : $digits;
-
         return Lead::query()
             ->where('empresa_id', $empresaId)
-            ->where(fn ($q) => $q
-                ->where('telefone', $digits)
-                ->orWhere('telefone', $withoutCountry)
-                ->orWhere('telefone', '+' . $digits))
-            ->first();
+            ->where('telefone_e164', $e164)
+            ->whereNotNull('opted_out_at')
+            ->exists();
     }
 
     private function log(?int $empresaId, string $phone, string $message, string $tipo, string $direcao, string $status, ?array $response = null): void

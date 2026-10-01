@@ -82,10 +82,14 @@
 
 ### 0.0 — Base
 
+> **Status:** concluída em 2026-09-30. Também corrigido: nome de rota duplicado (`onboarding.register.store`) que quebrava `php artisan route:cache`.
+
 1. Atualizar os testes que ainda testavam o fluxo do Breeze: `/register` redireciona para o onboarding e o cadastro leva a `onboarding.empresa`; `/` exige login.
 2. Atualizar o CLAUDE.md (versões e instruções de Twilio no dev).
 
 ### 0a — Segurança e isolamento entre empresas
+
+> **Status:** concluída em 2026-09-30.
 
 1. **Assinatura do webhook:** middleware `ValidateTwilioSignature` com `Twilio\Security\RequestValidator` (já vem no `twilio/sdk`). A URL validada é esquema + host + URI original da requisição (o `trustProxies` já está configurado, então funciona atrás de ngrok/load balancer). Sem token ou sem assinatura → 403. `TWILIO_WEBHOOK_VALIDATE=false` desliga a validação apenas fora de produção.
 2. **Roteamento do inbound:** a empresa é a dona do canal que recebeu a mensagem (`To`). Número desconhecido é descartado com log; nunca usar `Empresa::first()`. Se várias empresas cadastraram o mesmo número (sandbox no dev), usar a que já conversa com o contato; sem conversa, descartar.
@@ -99,16 +103,21 @@
 
 ### 0b — Telefone (libphonenumber + nono dígito)
 
-1. `composer require giggsey/libphonenumber-for-php`
+> **Status:** concluída em 2026-09-30. No banco de dev, a migration fundiu as conversas 11 e 12 (mesmo contato com e sem o 9).
+
+1. `composer require giggsey/libphonenumber-for-php-lite` (só o núcleo; o pacote completo traz dados de geocodificação/operadora que não usamos).
 2. Criar `app/Support/Phone.php` com:
-   - `Phone::normalize(string $raw, string $defaultRegion = 'BR'): ?string` → E.164 canônico ou `null`.
-   - `Phone::lineType(string $e164): string` → `mobile|fixed|toll_free|unknown` (usar `PhoneNumberUtil::getNumberType`).
-   - `Phone::isLikelyWhatsApp(string $e164): bool` → `true` para `mobile`/`fixed_line_or_mobile`.
-   - **Canonicalização BR:** número `+55` + DDD + 8 dígitos começando com 6–9 é celular antigo sem o 9 → inserir o 9 (`+554792801006` → `+5547992801006`). Nunca descartar uma mensagem recebida por número "inválido": se não normalizar, usar `+` + dígitos.
+   - `Phone::normalize(?string $raw, string $defaultRegion = 'BR'): ?string` → E.164 válido ou `null`. Sem `+`, tenta como número nacional e depois como número com DDI (`14155238886` → `+14155238886`).
+   - `Phone::canonical(...)`: igual a `normalize()`, mas um número internacional explícito (`+...`) que a libphonenumber não valida vira `+dígitos`. É o formato gravado em `telefone_e164` e usado para enviar: mensagem recebida nunca é descartada.
+   - `Phone::lineType(string $e164): string` → `mobile|fixed|fixed_or_mobile|toll_free|voip|unknown` (`fixed_or_mobile` é o caso dos EUA, onde não dá para distinguir).
+   - `Phone::isLikelyWhatsApp(string $e164): bool` → `true` para `mobile`/`fixed_or_mobile`.
+   - `Phone::waMeLink(...)` para os links `wa.me`.
+   - **Canonicalização BR:** número `+55` + DDD + 8 dígitos começando com 6–9 e **inválido** como está é celular antigo sem o 9 → inserir o 9 (`+554792801006` → `+5547992801006`). Números de 8 dígitos que já são válidos (ex.: `+55 11 7012-3456`) não mudam.
 3. Região padrão vem de `empresas.country` (**já existe**, default `BR`), não do tamanho do número.
 4. Substituir `WhatsAppService::normalizePhone`, a lógica dos Blades (`leads-table`, `internet-prospector`), o `SendWhatsAppMessageJob` e a busca de lead do `ChatPanel`.
-5. Migration: `telefone_e164` (string, index) em `leads` e `conversations`. Comando `php artisan leads:normalize-phones` faz o backfill e **funde conversas duplicadas** (move as mensagens para a mais antiga). Depois do backfill, unique `(empresa_id, telefone_e164)` em `conversations`.
-6. `checkOptOut` e `findLeadByPhone` usam `telefone_e164`; `Conversation::firstOrCreate` por `['empresa_id', 'telefone_e164']`.
+5. Migration: `telefone_e164` (string, index) em `leads` e `conversations`. Comando `php artisan leads:normalize-phones` faz o backfill e **funde conversas duplicadas** (move as mensagens para a mais antiga). A migration chama o comando e depois cria o unique `(empresa_id, telefone_e164)` em `conversations`. O comando pode ser rodado de novo a qualquer momento.
+6. `Lead` e `Conversation` preenchem `telefone_e164` ao salvar quando `telefone` muda (`telefone` guarda o que foi digitado/recebido). `checkOptOut` e o opt-out do `WhatsAppService` usam `telefone_e164` e valem para todos os leads da empresa com o número; `Conversation::firstOrCreate` por `['empresa_id', 'telefone_e164']`; a captura do catálogo (`LeadService::capturar`) atualiza o lead existente mesmo com o número em outro formato.
+7. Lead com telefone ilegível (sem DDD, curto demais) → `telefone_e164 = null` e o envio é bloqueado com `lead_invalid_phone` / `invalid_phone`.
 
 **Testes:** `PhoneTest`: `4733221100` → `+554733221100` (fixo); `47991234567` → `+5547991234567` (mobile); `54991234567` → `+5554991234567`; `+5491123456789` (AR) preservado; `+554792801006` → `+5547992801006`; `+14155238886` preservado.
 
@@ -220,7 +229,7 @@ Migration `create_lead_contacts_table`:
 id, lead_id (fk), empresa_id (fk, index)
 tipo: whatsapp | telefone | email | instagram | facebook | site
 valor (string), valor_e164 (nullable)
-line_type: mobile | fixed | toll_free | voip | unknown
+line_type: mobile | fixed | fixed_or_mobile | toll_free | voip | unknown
 origem: google_places | website_wa_link | website_tel | cnpj_receita | twilio_lookup | manual
 confianca (tinyint 0-100)
 provavel_decisor (bool)
@@ -532,9 +541,9 @@ PASSO 4 — Acompanhar (pipeline kanban)
 
 ## Ordem sugerida de commits
 
-1. `test: atualiza testes do Breeze para o onboarding` (0.0)
-2. `fix(whatsapp): valida assinatura do webhook e isola envios por empresa` (0a)
-3. `fix: normalização E.164 com libphonenumber e nono dígito` (0b)
+1. `test: align auth tests with onboarding flow, fix duplicate route name` (0.0)
+2. `fix(whatsapp): validate Twilio webhook signature and isolate tenants` (0a)
+3. `fix(phones): canonical E.164 with libphonenumber and Brazilian ninth digit` (0b)
 4. `fix: prospecção usa searchId, provider real e não sobrescreve score` (0c)
 5. `refactor: AIService com structured outputs e modelos configuráveis` (0d)
 6. `refactor: OutreachService unifica envio` (0e)

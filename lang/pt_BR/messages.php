@@ -176,6 +176,7 @@ return [
     'lead_deleted' => 'Lead excluído.',
     'leads_deleted' => ':count leads excluídos.',
     'lead_no_phone' => 'Este lead não tem telefone disponível.',
+    'lead_invalid_phone' => 'O telefone deste lead não é válido. Corrija o número com DDD.',
     'lead_opted_out' => 'Este lead optou por não receber mensagens.',
     'whatsapp_channel_required' => 'Cadastre um canal WhatsApp ativo para enviar mensagens.',
     'message_generation_failed' => 'Não foi possível gerar a mensagem. Tente novamente.',

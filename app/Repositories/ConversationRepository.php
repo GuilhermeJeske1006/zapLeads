@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\Conversation;
 use App\Models\Empresa;
+use App\Support\Phone;
 use Illuminate\Database\Eloquent\Collection;
 
 class ConversationRepository
@@ -16,6 +17,7 @@ class ConversationRepository
             ->when($search, fn ($q) => $q->where(function ($q) use ($search) {
                 $q->where('nome_contato', 'like', "%{$search}%")
                   ->orWhere('telefone', 'like', "%{$search}%")
+                  ->orWhere('telefone_e164', 'like', "%{$search}%")
                   ->orWhere('last_message', 'like', "%{$search}%");
             }))
             ->orderByDesc('last_message_at')
@@ -23,11 +25,13 @@ class ConversationRepository
             ->get();
     }
 
-    public function findOrCreateByPhone(Empresa $empresa, string $phone, string $nome = null): Conversation
+    public function findOrCreateByPhone(Empresa $empresa, string $phone, ?string $nome = null): Conversation
     {
+        $e164 = Phone::canonical($phone, $empresa->country);
+
         return Conversation::firstOrCreate(
-            ['empresa_id' => $empresa->id, 'telefone' => $phone],
-            ['nome_contato' => $nome, 'status' => 'active']
+            $e164 ? ['empresa_id' => $empresa->id, 'telefone_e164' => $e164] : ['empresa_id' => $empresa->id, 'telefone' => $phone],
+            ['telefone' => $phone, 'nome_contato' => $nome, 'status' => 'active']
         );
     }
 

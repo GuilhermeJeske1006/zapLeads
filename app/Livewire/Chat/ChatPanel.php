@@ -120,18 +120,10 @@ class ChatPanel extends Component
         ]);
 
         if ($result['success']) {
+            $e164 = $this->activeConversation->telefone_e164;
             $lead = $this->activeConversation->lead_id
                 ? $this->activeConversation->lead
-                : Lead::query()
-                    ->where('empresa_id', $empresaId)
-                    ->where(function ($q) use ($phone) {
-                        $digits = preg_replace('/\D/', '', (string) $phone);
-                        $withoutCountry = str_starts_with($digits, '55') ? substr($digits, 2) : $digits;
-                        $q->where('telefone', $digits)
-                            ->orWhere('telefone', $withoutCountry)
-                            ->orWhere('telefone', '+' . $digits);
-                    })
-                    ->first();
+                : ($e164 ? Lead::where('empresa_id', $empresaId)->where('telefone_e164', $e164)->first() : null);
 
             if ($lead && ($lead->status ?? 'novo') === 'novo') {
                 $lead->update(['status' => 'contatado']);

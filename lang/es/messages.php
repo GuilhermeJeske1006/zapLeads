@@ -176,6 +176,7 @@ return [
     'lead_deleted' => 'Contacto eliminado.',
     'leads_deleted' => ':count contactos eliminados.',
     'lead_no_phone' => 'Este contacto no tiene teléfono disponible.',
+    'lead_invalid_phone' => 'El teléfono de este contacto no es válido. Corrige el número con el código de área.',
     'lead_opted_out' => 'Este contacto optó por no recibir mensajes.',
     'whatsapp_channel_required' => 'Registra un canal de WhatsApp activo para enviar mensajes.',
     'message_generation_failed' => 'No se pudo generar el mensaje. Inténtalo nuevamente.',
