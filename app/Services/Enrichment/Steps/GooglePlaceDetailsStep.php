@@ -3,6 +3,7 @@
 namespace App\Services\Enrichment\Steps;
 
 use App\Models\Lead;
+use App\Services\Costs\UsageMeter;
 use App\Services\Enrichment\EnrichmentContext;
 use App\Services\Enrichment\EnrichmentStep;
 use Illuminate\Support\Arr;
@@ -35,6 +36,8 @@ class GooglePlaceDetailsStep implements EnrichmentStep
             Log::warning('Place Details failed', ['lead_id' => $lead->id, 'status' => $response->status(), 'error' => $response->json('error.message')]);
             return;
         }
+
+        app(UsageMeter::class)->places('place_details_enterprise_atmosphere');
 
         $place = $response->json();
         $lead->business_status = $place['businessStatus'] ?? $lead->business_status;

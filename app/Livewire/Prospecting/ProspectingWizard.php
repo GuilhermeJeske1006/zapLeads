@@ -5,12 +5,10 @@ namespace App\Livewire\Prospecting;
 use App\Jobs\FindInternetLeadsJob;
 use App\Models\Empresa;
 use App\Models\Lead;
-use App\Models\LeadContact;
 use App\Models\ProspectingSearch;
 use App\Services\Geo\GeocodingService;
 use App\Services\Prospecting\OutreachException;
 use App\Services\Prospecting\OutreachService;
-use App\Support\Phone;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
@@ -470,18 +468,10 @@ class ProspectingWizard extends Component
         return true;
     }
 
-    /** Enriched: the primary contact's confidence. Not yet: a mobile number (landlines may still turn up a WhatsApp). */
+    /** A lead whose contacts are still being looked up stays listed until it's done (landlines may turn up a WhatsApp). */
     public static function probableWhatsApp(Lead $lead): bool
     {
-        if ($lead->enrichment_status === 'done' && $lead->contact_confidence !== null) {
-            return $lead->contact_confidence >= LeadContact::MIN_WHATSAPP_CONFIDENCE;
-        }
-
-        if (in_array($lead->enrichment_status, ['pending', 'running'], true)) {
-            return true;
-        }
-
-        return $lead->telefone_e164 !== null && Phone::isLikelyWhatsApp($lead->telefone_e164);
+        return in_array($lead->enrichment_status, ['pending', 'running'], true) || $lead->hasProbableWhatsApp();
     }
 
     private static function approachable(Lead $lead): bool

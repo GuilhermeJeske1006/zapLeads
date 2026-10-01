@@ -113,6 +113,22 @@ class Lead extends Model
             && $this->contact_confidence < LeadContact::MIN_WHATSAPP_CONFIDENCE;
     }
 
+    /** Enriched: the primary contact reached the minimum confidence. Not yet: a mobile number by the numbering plan. */
+    public function hasProbableWhatsApp(): bool
+    {
+        if ($this->enrichment_status === 'done' && $this->contact_confidence !== null) {
+            return $this->contact_confidence >= LeadContact::MIN_WHATSAPP_CONFIDENCE;
+        }
+
+        return $this->telefone_e164 !== null && Phone::isLikelyWhatsApp($this->telefone_e164);
+    }
+
+    /** "Lead qualificado" (metrics, cost per qualified lead): fits the ideal customer and probably has WhatsApp. */
+    public function isQualified(): bool
+    {
+        return $this->fitScore() >= (int) config('costs.qualified_min_fit', 70) && $this->hasProbableWhatsApp();
+    }
+
     /** How well the lead matches the ideal customer (AI, 0-100); lead_score also weighs contact, pain and distance. */
     public function fitScore(): int
     {

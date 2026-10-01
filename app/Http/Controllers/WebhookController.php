@@ -9,9 +9,12 @@ use App\Models\Conversation;
 use App\Models\Lead;
 use App\Models\Empresa;
 use App\Models\Message;
+use App\Models\OutreachAttempt;
 use App\Models\OutreachDraft;
 use App\Models\SequenceEnrollment;
 use App\Models\WhatsAppChannel;
+use App\Services\ChannelHealthService;
+use App\Services\Costs\UsageMeter;
 use App\Services\OptOutDetector;
 use App\Services\Prospecting\OutreachService;
 use App\Services\WhatsAppService;
@@ -26,6 +29,8 @@ class WebhookController extends Controller
         private readonly OptOutDetector $optOut,
         private readonly WhatsAppService $whatsApp,
         private readonly OutreachService $outreach,
+        private readonly ChannelHealthService $health,
+        private readonly UsageMeter $meter,
     ) {}
 
     public function twilio(Request $request): Response
@@ -110,7 +115,11 @@ class WebhookController extends Controller
 
         $this->outreach->markReplied($empresa->id, $phone);
 
-        $this->checkOptOut($empresa, $phone, $text, $conversation);
+        // A long message may go to the AI to tell an opt-out from an objection.
+        $this->meter->within(
+            ['empresa_id' => $empresa->id, 'lead_id' => $conversation->lead_id, 'origem' => 'conversa'],
+            fn () => $this->checkOptOut($empresa, $phone, $text, $conversation),
+        );
 
         if ($empresa->bot_ativo && $conversation->status !== 'blocked' && $this->isBotActiveNow($empresa)) {
             AutoRespondJob::dispatch($conversation, $text)->delay(now()->addSeconds(3));
@@ -200,6 +209,10 @@ class WebhookController extends Controller
             ->update(['status' => 'skipped']);
 
         Log::info('Contact opted out', ['lead_ids' => $leadIds->all(), 'conversation_id' => $conversation->id]);
+
+        // Prospects asking to stop hurt the number's quality: the channels that approached them are checked.
+        $channelIds = OutreachAttempt::whereIn('lead_id', $leadIds)->whereNotNull('whatsapp_channel_id')->distinct()->pluck('whatsapp_channel_id');
+        WhatsAppChannel::whereKey($channelIds)->get()->each(fn (WhatsAppChannel $channel) => $this->health->checkOptOutRate($channel));
     }
 
     private function confirmOptOut(Empresa $empresa, Conversation $conversation): void

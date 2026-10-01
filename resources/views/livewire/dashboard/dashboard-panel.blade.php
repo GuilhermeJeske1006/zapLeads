@@ -26,6 +26,8 @@
         @endforeach
     </div>
 
+    <livewire:dashboard.prospecting-metrics :empresa="$empresa" />
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {{-- Map --}}
         <div class="lg:col-span-2 bg-gray-900 border border-gray-800 rounded-2xl p-5">

@@ -2,6 +2,7 @@
 
 namespace App\Services\Enrichment;
 
+use App\Services\Costs\UsageMeter;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Twilio\Rest\Client;
@@ -28,20 +29,31 @@ class TwilioLineTypeLookup
     protected function fetch(string $e164): ?string
     {
         try {
-            $result = (new Client(config('twilio.sid'), config('twilio.token')))
-                ->lookups->v2->phoneNumbers($e164)
-                ->fetch(['fields' => 'line_type_intelligence']);
+            $intelligence = $this->request($e164);
         } catch (\Throwable $e) {
             Log::warning('Twilio Lookup failed', ['phone' => $e164, 'error' => $e->getMessage()]);
             return null;
         }
 
-        return match ($result->lineTypeIntelligence['type'] ?? null) {
+        // Answered, so billed, even when the type comes back unknown.
+        app(UsageMeter::class)->lookup();
+
+        return match ($intelligence['type'] ?? null) {
             'mobile'                    => 'mobile',
             'landline'                  => 'fixed',
             'fixedVoip', 'nonFixedVoip' => 'voip',
             'tollFree'                  => 'toll_free',
             default                     => null,
         };
+    }
+
+    /** The paid call: line_type_intelligence of the number, as Twilio returns it. */
+    protected function request(string $e164): array
+    {
+        $result = (new Client(config('twilio.sid'), config('twilio.token')))
+            ->lookups->v2->phoneNumbers($e164)
+            ->fetch(['fields' => 'line_type_intelligence']);
+
+        return (array) ($result->lineTypeIntelligence ?? []);
     }
 }

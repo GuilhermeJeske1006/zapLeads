@@ -18,6 +18,7 @@ Multi-tenant (one `Empresa` per user). Onboarding wizard before app access.
 php artisan serve       # http://localhost:8000
 npm run dev             # Vite HMR
 php artisan queue:work --queue=default,enrichment  # jobs; "enrichment" runs lead enrichment
+php artisan schedule:work  # hourly whatsapp:check-channels (channel quality, auto-pause)
 ```
 
 Migrate + seed: `php artisan migrate --seed`
@@ -63,7 +64,7 @@ Pusher: set `BROADCAST_CONNECTION=pusher` + `PUSHER_*` vars for real-time chat.
 | POST | `/webhook/stripe` | Cashier webhook (no CSRF) |
 | GET | `/lang/{locale}` | Language switcher (pt_BR / es) |
 | * | `/onboarding/*` | Wizard steps (guest + auth variants) |
-| * | `/admin/*` | Master admin only (`EnsureMasterAdmin`) |
+| * | `/admin/*` | Master admin only (`EnsureMasterAdmin`); `/admin/custos` = API costs, cost per qualified lead, prompt cache |
 
 ## App Structure
 
@@ -80,6 +81,7 @@ app/
   Livewire/
     Chat/ChatPanel.php         # WhatsApp Web-style real-time chat
     Dashboard/DashboardPanel.php  # metrics + Leaflet map + AI insights
+    Dashboard/ProspectingMetrics.php  # funnel by period/search + A/B by angle, template, channel
     Prospecting/ProspectingWizard.php  # /prospeccao steps 1–2 (search, live progress, map, results)
     Leads/
       LeadsTable.php           # /leads
@@ -108,6 +110,10 @@ app/
     Prospecting/OutreachService.php  # review queue, 24h window, templates
     Enrichment/                # LeadEnrichmentService + Steps/ (Place Details, site, CNPJ, web research, Lookup, resolver)
     Scoring/LeadScoringService.php  # lead_score v2 (fit + contact + pain + proximity)
+    Costs/UsageMeter.php       # prices every paid call into api_usages (config/costs.php)
+    Metrics/FunnelReport.php   # prospecting funnel, reply rate by template/channel
+    Prospecting/AngleExperiment.php  # A/B of the first message's angle
+    ChannelHealthService.php   # Twilio quality/limit per channel, pauses prospecting
   Jobs/
     SendWhatsAppMessageJob.php
     FollowUpWhatsAppJob.php    # 24h delay follow-up
@@ -162,4 +168,7 @@ Webhook: `POST /webhook/twilio` — receives inbound messages, fires `NewMessage
 - Lead score (v2): `lead_score` = 40% fit + 25% contact confidence + 20% pain + 15% proximity, from `LeadScoringService`; fit/pain/hook come from `AIService::avaliarLeads` and live in `ai_insights` (breakdown in `ai_insights.score_breakdown`). Re-evaluated after each search and enrichment; `php artisan leads:score` recomputes without AI. Only `internet`/`manual` leads; catalog leads keep their distance score. Sales profile (offer, pain, proofs, excluded segments) is on `empresas`, edited in `/empresa` → Vendas.
 - Lead status is the funnel: `novo, abordado, respondeu, reuniao, proposta, convertido, descartado` (labels in `lang`, `messages.status_*`). Use `Lead::markApproached()` / `markReplied()` for automatic moves and `OutreachService::setStatus()` for user moves (it ends the cold cadence).
 - Prospecting search progress: `prospecting_searches.stage` + `progress`, advanced with `ProspectingSearch::advance()`, which broadcasts (`ShouldBroadcastNow`; a broadcaster that is down only logs). Screens also poll while `isActive()`. `error` stores a translation key.
+- Paid calls are metered: `AIService` records Claude usage itself; Places/Lookup call `UsageMeter::places()`/`lookup()` after a successful response. Entry points wrap their work in `UsageMeter::within(['empresa_id', 'prospecting_search_id', 'lead_id', 'origem'])` so rows land on who caused them. Prices: `config/costs.php` (list prices). "Lead qualificado" = `Lead::isQualified()` (fit ≥ 70 and `hasProbableWhatsApp()`).
+- A/B: `AngleExperiment::suggest()` picks the first message's angle (least sent until 30 sends per angle, then the best reply rate 80% / explore 20%). Only `etapa = 0` attempts count.
+- Channel health: `ChannelHealthService` pauses prospecting on a channel (quality dropped to LOW, sender OFFLINE, ≥10% opt-outs among API prospects in 7 days); `OutreachService` then refuses with `channel_paused`. Only the user resumes it (`WhatsAppChannels::retomarProspeccao`).
 - Phones: match, dedupe and send by `telefone_e164` (`App\Support\Phone::canonical()`, read with `empresas.country`); `telefone` keeps the raw input. Never compare raw `telefone` strings. `Lead`/`Conversation` fill `telefone_e164` on save; `php artisan leads:normalize-phones` re-runs the backfill.

@@ -13,6 +13,8 @@ class OutreachAttempt extends Model
         'lead_id',
         'outreach_draft_id',
         'canal',
+        'whatsapp_channel_id',
+        'whatsapp_template_id',
         'mensagem',
         'variante',
         'etapa',
@@ -27,6 +29,11 @@ class OutreachAttempt extends Model
     public function lead(): BelongsTo
     {
         return $this->belongsTo(Lead::class);
+    }
+
+    public function template(): BelongsTo
+    {
+        return $this->belongsTo(WhatsAppTemplate::class, 'whatsapp_template_id');
     }
 
     public function draft(): BelongsTo

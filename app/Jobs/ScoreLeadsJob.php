@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Empresa;
+use App\Services\Costs\UsageMeter;
 use App\Services\Scoring\LeadScoringService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -31,6 +32,9 @@ class ScoreLeadsJob implements ShouldQueue
             return;
         }
 
-        $scoring->evaluate($empresa, $empresa->leads()->whereKey($this->leadIds)->get());
+        app(UsageMeter::class)->within(
+            ['empresa_id' => $empresa->id, 'origem' => 'score'],
+            fn () => $scoring->evaluate($empresa, $empresa->leads()->whereKey($this->leadIds)->get()),
+        );
     }
 }

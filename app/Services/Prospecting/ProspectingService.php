@@ -6,6 +6,7 @@ use App\Models\Lead;
 use App\Models\Empresa;
 use App\Models\ProspectingSearch;
 use App\Services\AIService;
+use App\Services\Costs\UsageMeter;
 use App\Services\Enrichment\LeadEnrichmentService;
 use App\Services\Geo\Distance;
 use App\Services\Geo\GeocodingService;
@@ -28,6 +29,7 @@ class ProspectingService
         private readonly GeocodingService $geo,
         private readonly LeadEnrichmentService $enrichment,
         private readonly LeadScoringService $scoring,
+        private readonly UsageMeter $meter,
     ) {
         $googleKey   = (string) config('services.google_places.key');
         $mapboxToken = (string) config('services.mapbox.token');
@@ -49,6 +51,15 @@ class ProspectingService
      * it by id. A job retry runs the same search again instead of creating another one.
      */
     public function run(ProspectingSearch $search, int $maxResults = 60, ?float $customLat = null, ?float $customLng = null, string $customLocationLabel = ''): ProspectingSearch
+    {
+        // Keywords, Places pages and ranking are charged to the search (prospecting_searches.custos).
+        return $this->meter->within(
+            ['empresa_id' => $search->empresa_id, 'prospecting_search_id' => $search->id, 'origem' => 'busca'],
+            fn () => $this->runSearch($search, $maxResults, $customLat, $customLng, $customLocationLabel),
+        );
+    }
+
+    private function runSearch(ProspectingSearch $search, int $maxResults, ?float $customLat, ?float $customLng, string $customLocationLabel): ProspectingSearch
     {
         $empresa = $search->empresa;
         $radiusKm = (float) $search->radius_km;
@@ -128,6 +139,7 @@ class ProspectingService
     private function fail(ProspectingSearch $search, string $error): ProspectingSearch
     {
         $search->update(['status' => 'failed', 'error' => $error]);
+        $search->refreshCosts();
         $search->broadcastProgress();
 
         return $search;

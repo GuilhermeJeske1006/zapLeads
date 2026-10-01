@@ -23,6 +23,7 @@ class EnrichLeadJob implements ShouldQueue
 
     public function __construct(
         public readonly int $leadId,
+        public readonly ?int $searchId = null,
     ) {
         $this->onQueue('enrichment');
     }
@@ -34,7 +35,7 @@ class EnrichLeadJob implements ShouldQueue
         }
 
         if ($lead = Lead::find($this->leadId)) {
-            $enrichment->enrich($lead);
+            $enrichment->enrich($lead, $this->searchId);
         }
     }
 

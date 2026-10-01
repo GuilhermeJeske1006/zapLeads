@@ -2,6 +2,7 @@
 
 namespace App\Services\Prospecting\Providers;
 
+use App\Services\Costs\UsageMeter;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -46,6 +47,9 @@ class GooglePlacesProvider implements PlacesProviderInterface
                 ]);
                 return $empty;
             }
+
+            // Phone, site and rating in the field mask make every page an Enterprise request.
+            app(UsageMeter::class)->places('text_search_enterprise');
 
             $places = $resp->json('places') ?? [];
             $out    = [];

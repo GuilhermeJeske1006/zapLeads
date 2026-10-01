@@ -4,7 +4,6 @@ namespace App\Services\Prospecting;
 
 use App\Models\Empresa;
 use App\Models\Lead;
-use App\Models\OutreachAttempt;
 use App\Services\AIService;
 use App\Services\Scoring\LeadScoringService;
 
@@ -77,31 +76,6 @@ class OutreachWriter
         $text = $this->ai->gerarFollowUp($empresa, $leadData, $objetivo, $historico, $idioma, array_map(self::describe(...), $violations));
 
         return $text !== '' && OutreachMessageValidator::violations($text, $sources, $needsQuestion) === [] ? $text : null;
-    }
-
-    /**
-     * The angle to suggest first: the one this empresa has sent least, so the A/B gets even samples.
-     * Without a hook, "observacao" has nothing concrete to say and comes last.
-     *
-     * @param  list<array{angulo: string}>  $variantes
-     */
-    public function suggestedAngle(Empresa $empresa, array $variantes, bool $hasHook): string
-    {
-        $angles = array_column($variantes, 'angulo');
-        $sent = OutreachAttempt::where('empresa_id', $empresa->id)
-            ->where('etapa', 0)
-            ->whereIn('variante', $angles)
-            ->selectRaw('variante, count(*) as total')
-            ->groupBy('variante')
-            ->pluck('total', 'variante');
-
-        usort($angles, fn (string $a, string $b) => [
-            !$hasHook && $a === 'observacao', $sent[$a] ?? 0, array_search($a, AIService::ANGULOS),
-        ] <=> [
-            !$hasHook && $b === 'observacao', $sent[$b] ?? 0, array_search($b, AIService::ANGULOS),
-        ]);
-
-        return $angles[0];
     }
 
     /** What the seller offers, with only the filled fields. */

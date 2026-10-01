@@ -52,6 +52,7 @@ class FindInternetLeadsJob implements ShouldQueue
             'status' => 'failed',
             'error'  => 'messages.search_failed_generic',
         ]);
+        $search?->refreshCosts();
         $search?->broadcastProgress();
     }
 }

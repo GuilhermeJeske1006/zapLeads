@@ -123,7 +123,7 @@ class OutreachServiceTest extends TestCase
     public function test_closed_session_goes_out_as_the_approved_template(): void
     {
         $channel = $this->channel($this->empresa);
-        $this->template(['1' => 'lead_nome', '2' => 'mensagem']);
+        $template = $this->template(['1' => 'lead_nome', '2' => 'mensagem']);
         $draft = $this->draft($this->lead('+55 47 99280-1006'), "Vocês ainda marcam\nhorário pelo WhatsApp?");
 
         $this->outreach()->approve($draft);
@@ -139,6 +139,10 @@ class OutreachServiceTest extends TestCase
             && json_decode($params['contentVariables'], true) === ['1' => 'Studio Bella', '2' => 'Vocês ainda marcam horário pelo WhatsApp?']
             && !isset($params['body'])
             && $params['from'] === $channel->numero);
+
+        // The A/B by template and the channel's health read these.
+        $attempt = OutreachAttempt::sole();
+        $this->assertSame([$channel->id, $template->id], [$attempt->whatsapp_channel_id, $attempt->whatsapp_template_id]);
     }
 
     public function test_uses_the_first_template_the_message_fills(): void
@@ -247,11 +251,12 @@ class OutreachServiceTest extends TestCase
     public function test_assisted_send_is_recorded_without_using_the_api(): void
     {
         $lead = $this->lead('+55 47 99280-1006');
-        $draft = $this->draft($lead);
+        $draft = $this->draft($lead, channel: $this->channel($this->empresa));
 
         $attempt = $this->outreach()->markAssisted($draft, 'Oi, Carla! Tudo bem?');
 
         $this->assertSame('assisted', $attempt->canal);
+        $this->assertNull($attempt->whatsapp_channel_id); // went out from the user's phone, not the channel
         $this->assertSame('Oi, Carla! Tudo bem?', $attempt->mensagem);
         $this->assertSame('sent', $draft->fresh()->status);
         $this->assertSame('abordado', $lead->fresh()->status);

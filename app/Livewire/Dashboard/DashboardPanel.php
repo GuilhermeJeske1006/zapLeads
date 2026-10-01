@@ -5,6 +5,7 @@ namespace App\Livewire\Dashboard;
 use App\Models\Empresa;
 use App\Repositories\LeadRepository;
 use App\Services\AIService;
+use App\Services\Costs\UsageMeter;
 use Livewire\Component;
 
 class DashboardPanel extends Component
@@ -20,11 +21,12 @@ class DashboardPanel extends Component
     {
         $this->stats = $leadRepo->getStats($this->empresa);
         $this->conversasAtivas = $this->empresa->conversations()->where('status', 'active')->count();
-        $totalRespostas = $this->empresa->conversations()
-            ->whereHas('messages', fn ($q) => $q->where('sender', 'user'))
-            ->count();
-        $this->taxaResposta = $this->stats['total'] > 0
-            ? round(($totalRespostas / $this->stats['total']) * 100, 1)
+
+        // Prospects who answered the first message, out of those it reached.
+        $abordagens = $this->empresa->outreachAttempts()->where('etapa', 0);
+        $enviadas = (clone $abordagens)->count();
+        $this->taxaResposta = $enviadas > 0
+            ? round((clone $abordagens)->whereNotNull('responded_at')->count() / $enviadas * 100, 1)
             : 0;
     }
 
@@ -33,7 +35,10 @@ class DashboardPanel extends Component
         $this->loadingInsights = true;
         try {
             $leads = $this->empresa->leads()->limit(50)->get()->toArray();
-            $this->aiInsights = $ai->sugerirCampanha($leads, 'análise geral do negócio');
+            $this->aiInsights = app(UsageMeter::class)->within(
+                ['empresa_id' => $this->empresa->id, 'origem' => 'insights'],
+                fn () => $ai->sugerirCampanha($leads, 'análise geral do negócio'),
+            );
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('AIService sugerirCampanha failed', ['error' => $e->getMessage()]);
             $this->dispatch('toast', type: 'error', message: 'Limite da API atingido. Tente novamente em alguns minutos.');

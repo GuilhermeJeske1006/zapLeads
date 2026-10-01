@@ -5,6 +5,7 @@ namespace App\Services\Enrichment;
 use App\Jobs\EnrichLeadJob;
 use App\Models\Lead;
 use App\Models\ProspectingSearch;
+use App\Services\Costs\UsageMeter;
 use App\Services\Enrichment\Steps\CnpjStep;
 use App\Services\Enrichment\Steps\ContactResolverStep;
 use App\Services\Enrichment\Steps\GooglePlaceDetailsStep;
@@ -35,9 +36,19 @@ class LeadEnrichmentService
 
     public function __construct(
         private readonly LeadScoringService $scoring,
+        private readonly UsageMeter $meter,
     ) {}
 
-    public function enrich(Lead $lead): void
+    /** $searchId: the search whose batch asked for it, which pays for it (null for "Buscar contatos"). */
+    public function enrich(Lead $lead, ?int $searchId = null): void
+    {
+        $this->meter->within(
+            ['empresa_id' => $lead->empresa_id, 'prospecting_search_id' => $searchId, 'lead_id' => $lead->id, 'origem' => 'enriquecimento'],
+            fn () => $this->run($lead),
+        );
+    }
+
+    private function run(Lead $lead): void
     {
         $lead->update(['enrichment_status' => 'running']);
 
@@ -107,7 +118,7 @@ class LeadEnrichmentService
         $search->advance('enriching', ['enriquecer' => $leads->count()]);
         $searchId = $search->id;
 
-        $batch = Bus::batch($leads->map(fn (Lead $lead) => new EnrichLeadJob($lead->id))->all())
+        $batch = Bus::batch($leads->map(fn (Lead $lead) => new EnrichLeadJob($lead->id, $searchId))->all())
             ->name("enrichment:search:{$searchId}")
             ->onQueue('enrichment')
             ->allowFailures()

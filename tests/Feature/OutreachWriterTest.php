@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Empresa;
 use App\Models\Lead;
-use App\Models\OutreachAttempt;
 use App\Models\User;
 use App\Services\AIService;
 use App\Services\Prospecting\OutreachWriter;
@@ -91,19 +90,6 @@ class OutreachWriterTest extends TestCase
         $this->assertArrayNotHasKey('decisor_primeiro_nome', OutreachWriter::leadData($this->lead));
     }
 
-    public function test_suggests_the_angle_sent_least_for_an_even_ab_test(): void
-    {
-        $variantes = array_map(fn (string $a) => ['angulo' => $a], AIService::ANGULOS);
-        $writer = app(OutreachWriter::class);
-
-        $this->assertSame('observacao', $writer->suggestedAngle($this->empresa, $variantes, hasHook: true));
-        $this->assertSame('dor_do_segmento', $writer->suggestedAngle($this->empresa, $variantes, hasHook: false));
-
-        $this->attempt('observacao');
-        $this->attempt('dor_do_segmento');
-        $this->assertSame('roteamento', $writer->suggestedAngle($this->empresa, $variantes, hasHook: true));
-    }
-
     public function test_follow_up_is_rewritten_once_and_may_repeat_what_was_already_sent(): void
     {
         $this->mock(AIService::class, function (MockInterface $ai) {
@@ -126,13 +112,5 @@ class OutreachWriterTest extends TestCase
             'dor_hipotese' => 'Clientes desistem quando ninguém responde',
             'variantes'    => array_map(fn ($angulo, $mensagem) => ['angulo' => $angulo, 'mensagem' => $mensagem, 'gancho_usado' => null], array_keys($byAngle), $byAngle),
         ];
-    }
-
-    private function attempt(string $variante): void
-    {
-        OutreachAttempt::create([
-            'empresa_id' => $this->empresa->id, 'lead_id' => $this->lead->id, 'canal' => 'assisted',
-            'mensagem' => 'Oi?', 'variante' => $variante, 'etapa' => 0,
-        ]);
     }
 }

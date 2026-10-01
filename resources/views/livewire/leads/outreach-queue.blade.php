@@ -24,6 +24,13 @@
         </div>
     </div>
 
+    @if ($channel?->isProspectingPaused())
+        <div role="alert" class="px-5 py-3 border-b border-gray-800 bg-amber-500/10 text-sm text-amber-200">
+            {{ __('messages.channel_paused_banner', ['canal' => $channel->nome, 'motivo' => __('messages.channel_pause_reason_' . $channel->pausa_motivo)]) }}
+            <a href="{{ route('empresa.edit') }}#whatsapp" class="underline hover:text-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 rounded">{{ __('messages.channel_paused_manage') }}</a>
+        </div>
+    @endif
+
     @forelse ($drafts as $draft)
         @php
             $lead = $draft->lead;

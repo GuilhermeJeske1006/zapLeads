@@ -5,6 +5,7 @@ namespace App\Services;
 use Anthropic\Beta\Messages\BetaWebSearchTool20260209;
 use Anthropic\Client as AnthropicClient;
 use App\Models\Conversation;
+use App\Services\Costs\UsageMeter;
 use App\Services\Prospecting\ReplyPlaybook;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -157,7 +158,10 @@ TASK;
             $systemPrompt .= "\n\n" . $playbook;
         }
 
-        return $this->text('quality', $systemPrompt, $prompt, 2000, 'low');
+        return app(UsageMeter::class)->within(
+            ['empresa_id' => $conversation->empresa_id, 'lead_id' => $conversation->lead_id, 'origem' => 'conversa'],
+            fn () => $this->text('quality', $systemPrompt, $prompt, 2000, 'low'),
+        );
     }
 
     public function sugerirCampanha(array $leads, string $objetivo = ''): array
@@ -497,6 +501,22 @@ PROMPT;
             return null;
         }
 
+        // Billed even when the answer is discarded below (cut by max_tokens, refused).
+        $usage = [
+            'input_tokens'                => $message->usage->inputTokens,
+            'output_tokens'               => $message->usage->outputTokens,
+            'cache_read_input_tokens'     => (int) $message->usage->cacheReadInputTokens,
+            'cache_creation_input_tokens' => (int) $message->usage->cacheCreationInputTokens,
+        ];
+        app(UsageMeter::class)->claude(
+            $message->model ?: $model,
+            $usage['input_tokens'],
+            $usage['output_tokens'],
+            $usage['cache_read_input_tokens'],
+            $usage['cache_creation_input_tokens'],
+            (int) ($message->usage->serverToolUse?->webSearchRequests ?? 0),
+        );
+
         if ($message->stopReason !== 'end_turn') {
             Log::warning('AIService answer discarded', ['model' => $model, 'stop_reason' => $message->stopReason]);
             return null;
@@ -523,14 +543,9 @@ PROMPT;
         }
 
         return [
-            'text' => $text,
-            'urls' => array_values(array_unique(array_filter($urls))),
-            'usage' => [
-                'input_tokens'                => $message->usage->inputTokens,
-                'output_tokens'               => $message->usage->outputTokens,
-                'cache_read_input_tokens'     => (int) $message->usage->cacheReadInputTokens,
-                'cache_creation_input_tokens' => (int) $message->usage->cacheCreationInputTokens,
-            ],
+            'text'  => $text,
+            'urls'  => array_values(array_unique(array_filter($urls))),
+            'usage' => $usage,
         ];
     }
 

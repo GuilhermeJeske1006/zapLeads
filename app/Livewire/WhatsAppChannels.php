@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\Empresa;
 use App\Models\WhatsAppChannel;
+use App\Services\ChannelHealthService;
 use App\Services\WhatsAppService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Locked;
@@ -123,6 +124,17 @@ class WhatsAppChannels extends Component
                 ->where('empresa_id', $this->empresaId)
                 ->update(['is_default' => true]);
         });
+    }
+
+    /** Prospecting was paused on the number (quality, opt-outs): the user decides it can go on. */
+    public function retomarProspeccao(int $id): void
+    {
+        $channel = WhatsAppChannel::where('id', $id)
+            ->where('empresa_id', $this->empresaId)
+            ->firstOrFail();
+
+        app(ChannelHealthService::class)->resume($channel);
+        session()->flash('success', __('messages.channel_resumed', ['canal' => $channel->nome]));
     }
 
     public function toggleAtivo(int $id): void

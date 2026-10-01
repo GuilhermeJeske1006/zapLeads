@@ -35,6 +35,7 @@ class ProspectingSearch extends Model
         'status',
         'stage',
         'progress',
+        'custos',
         'results_count',
         'error',
     ];
@@ -46,6 +47,7 @@ class ProspectingSearch extends Model
         'keywords' => 'array',
         'filtros' => 'array',
         'progress' => 'array',
+        'custos' => 'array',
     ];
 
     public function empresa(): BelongsTo
@@ -75,11 +77,30 @@ class ProspectingSearch extends Model
             || ($this->status === 'done' && $this->stage !== null && $this->stage !== 'done');
     }
 
-    /** Moves to $stage, merges $progress counts and tells the screen. */
+    /** Moves to $stage, merges $progress counts and tells the screen. At "done" the costs are final. */
     public function advance(string $stage, array $progress = []): void
     {
         $this->update(['stage' => $stage, 'progress' => array_merge($this->progress ?? [], $progress)]);
+        if ($stage === 'done') {
+            $this->refreshCosts();
+        }
         $this->broadcastProgress();
+    }
+
+    /** Sums what the search spent (keywords, Places, ranking, its enrichment batch) into custos. */
+    public function refreshCosts(): void
+    {
+        $this->update(['custos' => ApiUsage::summarize(ApiUsage::where('prospecting_search_id', $this->id))
+            + ['atualizado_em' => now()->toIso8601String()]]);
+    }
+
+    /** Leads of this search worth approaching (Lead::isQualified), for the cost per qualified lead. */
+    public function qualifiedLeadsCount(): int
+    {
+        return $this->leads()
+            ->get(['id', 'enrichment_status', 'contact_confidence', 'telefone_e164', 'ai_insights'])
+            ->filter(fn (Lead $lead) => $lead->isQualified())
+            ->count();
     }
 
     /**

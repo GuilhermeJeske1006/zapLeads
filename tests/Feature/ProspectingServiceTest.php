@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\EnrichLeadJob;
+use App\Models\ApiUsage;
 use App\Models\Empresa;
 use App\Models\Lead;
 use App\Models\ProspectingSearch;
@@ -139,6 +140,22 @@ class ProspectingServiceTest extends TestCase
         $this->runSearch();
 
         $this->assertSame('(47) 99999-8888', $lead->fresh()->telefone);
+    }
+
+    public function test_search_is_charged_for_each_places_page_and_keeps_the_total(): void
+    {
+        config(['services.enrichment.top_n' => 0]); // nothing to enrich: the search finishes here
+        $this->keywords(['padaria', 'confeitaria']);
+        $this->fakePlaces(['padaria' => [$this->places('P', 2), $this->places('Q', 1)], 'confeitaria' => [$this->places('C', 1)]]);
+
+        $search = $this->runSearch();
+
+        $usages = ApiUsage::all();
+        $this->assertCount(3, $usages);
+        $this->assertSame([['google_places', 'text_search_enterprise', $search->id, $this->empresa->id, 'busca']], $usages
+            ->map(fn ($u) => [$u->servico, $u->sku, $u->prospecting_search_id, $u->empresa_id, $u->origem])->unique()->values()->all());
+        $this->assertSame('done', $search->stage);
+        $this->assertEqualsWithDelta(3 * 0.035, $search->custos['total_usd'], 1e-9);
     }
 
     private function runSearch(float $radiusKm = 5, int $maxResults = 60): ProspectingSearch

@@ -12,6 +12,7 @@ use App\Models\OutreachAttempt;
 use App\Models\OutreachDraft;
 use App\Models\WhatsAppChannel;
 use App\Models\WhatsAppTemplate;
+use App\Services\Costs\UsageMeter;
 
 /**
  * The one place that decides whether and how a prospect is approached. Nothing goes out without
@@ -25,6 +26,8 @@ class OutreachService
         private readonly OutreachWriter $writer,
         private readonly OutreachScheduler $scheduler,
         private readonly FollowUpCadence $cadence,
+        private readonly UsageMeter $meter,
+        private readonly AngleExperiment $experiment,
     ) {}
 
     /** @throws OutreachException when the lead can't receive WhatsApp messages */
@@ -102,12 +105,15 @@ class OutreachService
 
     /**
      * Writes the message (GenerateOutreachDraftJob): the first one in three angles, with the one
-     * this empresa sent least picked for A/B, or the follow-up of the draft's cadence step. With
+     * the A/B test suggests picked (AngleExperiment), or the follow-up of the draft's cadence step. With
      * auto-send on, approves it right away.
      */
     public function prepare(OutreachDraft $draft): void
     {
-        $written = $draft->isFollowUp() ? $this->writeFollowUp($draft) : $this->writeFirst($draft);
+        $written = $this->meter->within(
+            ['empresa_id' => $draft->empresa_id, 'lead_id' => $draft->lead_id, 'origem' => 'abordagem'],
+            fn () => $draft->isFollowUp() ? $this->writeFollowUp($draft) : $this->writeFirst($draft),
+        );
 
         if ($written === null) {
             $draft->update(['status' => 'failed', 'erro' => 'generation_failed']);
@@ -220,7 +226,7 @@ class OutreachService
         SendWhatsAppMessageJob::dispatch($message);
 
         $draft->update(['status' => 'sent', 'sent_at' => now(), 'whatsapp_channel_id' => $channel->id]);
-        $this->recordAttempt($draft, 'api', $text);
+        $this->recordAttempt($draft, 'api', $text, $channel, $template['template'] ?? null);
         $this->cadence->onSent($draft);
 
         return $message;
@@ -333,7 +339,8 @@ class OutreachService
 
     /**
      * The contact keeps hearing from the number they already talk to; otherwise the draft's
-     * channel or the empresa's default. Only active channels of the empresa.
+     * channel or the empresa's default. Only active channels of the empresa, and not while
+     * prospecting is paused on it (quality dropped): another number would not help that contact.
      *
      * @throws OutreachException
      */
@@ -347,6 +354,10 @@ class OutreachService
 
         foreach ($candidates as $channel) {
             if ($channel && $channel->ativo && (int) $channel->empresa_id === (int) $draft->empresa_id) {
+                if ($channel->isProspectingPaused()) {
+                    throw new OutreachException('channel_paused');
+                }
+
                 return $channel;
             }
         }
@@ -398,16 +409,19 @@ class OutreachService
         }
     }
 
-    private function recordAttempt(OutreachDraft $draft, string $canal, string $mensagem): OutreachAttempt
+    /** The channel and template only for API sends: the A/B by template and the channel's health read them. */
+    private function recordAttempt(OutreachDraft $draft, string $canal, string $mensagem, ?WhatsAppChannel $channel = null, ?WhatsAppTemplate $template = null): OutreachAttempt
     {
         return OutreachAttempt::create([
-            'empresa_id'        => $draft->empresa_id,
-            'lead_id'           => $draft->lead_id,
-            'outreach_draft_id' => $draft->id,
-            'canal'             => $canal,
-            'mensagem'          => $mensagem,
-            'variante'          => $draft->variante_escolhida,
-            'etapa'             => $draft->etapa,
+            'empresa_id'           => $draft->empresa_id,
+            'lead_id'              => $draft->lead_id,
+            'outreach_draft_id'    => $draft->id,
+            'canal'                => $canal,
+            'whatsapp_channel_id'  => $channel?->id,
+            'whatsapp_template_id' => $template?->id,
+            'mensagem'             => $mensagem,
+            'variante'             => $draft->variante_escolhida,
+            'etapa'                => $draft->etapa,
         ]);
     }
 
@@ -419,7 +433,7 @@ class OutreachService
             return null;
         }
 
-        $angulo = $this->writer->suggestedAngle($draft->empresa, $written['variantes'], !empty($draft->lead->ai_insights['gancho']));
+        $angulo = $this->experiment->suggest($draft->empresa_id, array_column($written['variantes'], 'angulo'), !empty($draft->lead->ai_insights['gancho']));
 
         return [
             'variantes'          => $written['variantes'],

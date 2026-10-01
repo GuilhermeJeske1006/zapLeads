@@ -12,6 +12,7 @@ use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\BillingController;
 use App\Http\Controllers\ProdutosController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Admin\CostsController as AdminCostsController;
 use App\Http\Controllers\Admin\SubscriptionsController as AdminSubscriptionsController;
 use App\Livewire\Onboarding\EmpresaStep;
 use App\Livewire\Onboarding\PlanoStep;
@@ -78,4 +79,5 @@ Route::middleware(['auth', 'set.locale', 'onboarding'])->group(function () {
 // Admin (master admin only)
 Route::middleware(['auth', 'set.locale', 'master.admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/assinaturas', [AdminSubscriptionsController::class, 'index'])->name('subscriptions.index');
+    Route::get('/custos', [AdminCostsController::class, 'index'])->name('costs.index');
 });

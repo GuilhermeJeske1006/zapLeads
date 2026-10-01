@@ -271,8 +271,35 @@
                                 <td class="py-2.5 pr-4 font-mono text-xs text-gray-400">
                                     {{ $channel->numero }}
                                     <span class="block font-sans text-gray-400">{{ __('messages.daily_limit_short', ['limit' => $channel->limite_diario_prospeccao]) }}</span>
+                                    @if ($channel->qualidade)
+                                        @php
+                                            $qualityClass = match ($channel->qualidade) {
+                                                'HIGH'   => 'bg-green-900/40 text-green-300 border-green-800',
+                                                'MEDIUM' => 'bg-yellow-900/40 text-yellow-300 border-yellow-800',
+                                                'LOW'    => 'bg-red-900/40 text-red-300 border-red-800',
+                                                default  => 'bg-gray-800 text-gray-300 border-gray-700',
+                                            };
+                                        @endphp
+                                        <span class="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded border font-sans {{ $qualityClass }}"
+                                              title="{{ __('messages.channel_quality_checked', ['when' => $channel->saude_verificada_em?->diffForHumans() ?? '—']) }}">
+                                            {{ __('messages.channel_quality_' . strtolower($channel->qualidade)) }}
+                                        </span>
+                                        @if ($channel->limite_mensagens)
+                                            <span class="block font-sans text-gray-400">{{ __('messages.channel_messaging_limit', ['limit' => $channel->limite_mensagens]) }}</span>
+                                        @endif
+                                    @endif
                                 </td>
                                 <td class="py-2.5 pr-4">
+                                    @if ($channel->isProspectingPaused())
+                                        <div class="mb-1.5 text-xs text-amber-300">
+                                            {{ __('messages.channel_prospecting_paused', ['motivo' => __('messages.channel_pause_reason_' . $channel->pausa_motivo)]) }}
+                                            <button wire:click="retomarProspeccao({{ $channel->id }})"
+                                                wire:confirm="{{ __('messages.channel_resume_confirm') }}"
+                                                class="block mt-0.5 underline hover:text-amber-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 rounded">
+                                                {{ __('messages.channel_resume') }}
+                                            </button>
+                                        </div>
+                                    @endif
                                     <button wire:click="toggleAtivo({{ $channel->id }})"
                                         class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium transition-colors
                                             {{ $channel->ativo ? 'bg-green-900/40 text-green-400 hover:bg-green-900/60' : 'bg-gray-700 text-gray-400 hover:bg-gray-600' }}">
