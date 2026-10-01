@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\OutreachAttempt;
 use App\Models\WhatsAppChannel;
+use App\Notifications\ProspectingPaused;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -107,6 +108,9 @@ class ChannelHealthService
 
         $channel->update(['prospeccao_pausada_em' => now(), 'pausa_motivo' => $reason]);
         Log::warning('Prospecting paused on WhatsApp channel', ['channel_id' => $channel->id, 'reason' => $reason]);
+
+        $empresa = $channel->empresa;
+        $empresa?->user?->notify((new ProspectingPaused($channel))->locale($empresa->locale ?: 'pt_BR'));
     }
 
     public function resume(WhatsAppChannel $channel): void

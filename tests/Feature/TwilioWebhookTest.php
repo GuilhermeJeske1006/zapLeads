@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\AutoRespondJob;
+use App\Jobs\ProcessInboundMessageJob;
 use App\Models\Conversation;
 use App\Models\Empresa;
 use App\Models\Lead;
@@ -10,6 +11,7 @@ use App\Models\Message;
 use App\Models\OutreachAttempt;
 use App\Models\User;
 use App\Models\WhatsAppChannel;
+use App\Services\AIService;
 use App\Services\WhatsAppService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,7 +36,8 @@ class TwilioWebhookTest extends TestCase
         parent::setUp();
 
         config(['twilio.token' => self::TOKEN, 'twilio.webhook_validate' => true]);
-        Queue::fake();
+        // The inbound processing (opt-out, bot) runs; the bot's reply is only recorded.
+        Queue::fake([AutoRespondJob::class]);
 
         $this->whatsApp = Mockery::mock(WhatsAppService::class)->makePartial()->shouldAllowMockingProtectedMethods();
         $this->whatsApp->shouldReceive('createMessage')->andReturn(['sid' => 'SMconfirm', 'status' => 'queued'])->byDefault();
@@ -203,6 +206,23 @@ class TwilioWebhookTest extends TestCase
         $this->assertSame('failed', $message->fresh()->status);
         $this->assertSame('63016', $message->fresh()->error_code);
         $this->assertSame(__('messages.error_63016'), $message->fresh()->failureReason());
+    }
+
+    public function test_webhook_answers_without_waiting_on_the_ai_or_twilio(): void
+    {
+        Queue::fake();
+        $empresa = $this->empresa();
+        $this->channel($empresa, 'whatsapp:+5547900000001');
+        $ai = Mockery::mock(AIService::class);
+        $ai->shouldNotReceive('classificarRespostaProspeccao');
+        $this->app->instance(AIService::class, $ai);
+        $this->whatsApp->shouldNotReceive('createMessage');
+
+        $this->signedPost($this->inbound('whatsapp:+5547900000001', body: 'Por favor me tira da lista de vocês'))->assertNoContent();
+
+        $message = Message::sole();
+        Queue::assertPushed(ProcessInboundMessageJob::class, fn ($job) => $job->messageId === $message->id);
+        $this->assertSame('active', Conversation::sole()->status);
     }
 
     public function test_bot_hours_follow_the_empresa_timezone(): void

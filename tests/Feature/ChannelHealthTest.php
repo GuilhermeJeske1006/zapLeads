@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\ProcessInboundMessageJob;
 use App\Jobs\SendOutreachDraftJob;
 use App\Livewire\WhatsAppChannels;
 use App\Models\Conversation;
@@ -11,7 +12,9 @@ use App\Models\OutreachAttempt;
 use App\Models\OutreachDraft;
 use App\Models\User;
 use App\Models\WhatsAppChannel;
+use App\Notifications\ProspectingPaused;
 use App\Services\ChannelHealthService;
+use App\Services\InboundMessageService;
 use App\Services\Prospecting\OutreachException;
 use App\Services\Prospecting\OutreachService;
 use App\Services\WhatsAppService;
@@ -19,6 +22,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Mockery;
@@ -136,6 +140,7 @@ class ChannelHealthTest extends TestCase
         $this->post(route('webhook.twilio'), [
             'From' => 'whatsapp:' . $leads[1]->telefone_e164, 'To' => self::NUMBER, 'Body' => 'SAIR', 'MessageSid' => 'SM' . str_repeat('1', 32),
         ])->assertNoContent();
+        Queue::pushed(ProcessInboundMessageJob::class)->sole()->handle(app(InboundMessageService::class));
 
         $this->assertTrue($leads[1]->fresh()->isOptedOut());
         $this->assertSame('opt_out_rate', $this->channel->fresh()->pausa_motivo);
@@ -183,6 +188,29 @@ class ChannelHealthTest extends TestCase
 
         $this->expectException(ModelNotFoundException::class);
         Livewire::test(WhatsAppChannels::class, ['empresaId' => $this->empresa->id])->call('retomarProspeccao', $foreign->id);
+    }
+
+    public function test_owner_is_emailed_once_in_the_empresa_language_when_prospecting_pauses(): void
+    {
+        Notification::fake();
+        $this->empresa->update(['locale' => 'es']);
+        $health = app(ChannelHealthService::class);
+
+        $health->pause($this->channel->fresh(), 'quality_low');
+        $health->pause($this->channel->fresh(), 'opt_out_rate'); // already paused: no second e-mail
+
+        Notification::assertSentToTimes($this->empresa->user, ProspectingPaused::class, 1);
+        Notification::assertSentTo($this->empresa->user, ProspectingPaused::class, fn (ProspectingPaused $n) => $n->locale === 'es');
+
+        app()->setLocale('es');
+        $mail = (new ProspectingPaused($this->channel->fresh()))->toMail($this->empresa->user);
+        $this->assertSame(__('messages.channel_paused_mail_subject', ['canal' => 'Vendas']), $mail->subject);
+        $this->assertStringContainsString('Vendas (+5547900000001)', $mail->introLines[0]);
+        $this->assertStringContainsString(__('messages.channel_pause_reason_quality_low'), $mail->introLines[0]);
+        $this->assertStringEndsWith('/empresa#whatsapp', $mail->actionUrl);
+        $html = (string) $mail->render();
+        $this->assertStringContainsString('Si el botón', html_entity_decode($html));
+        $this->assertStringNotContainsString('Regards', $html);
     }
 
     public function test_hourly_command_syncs_and_checks_every_active_channel(): void

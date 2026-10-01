@@ -4,20 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Events\MessageStatusUpdated;
 use App\Events\NewMessageReceived;
-use App\Jobs\AutoRespondJob;
 use App\Models\Conversation;
-use App\Models\Lead;
-use App\Models\Empresa;
 use App\Models\Message;
-use App\Models\OutreachAttempt;
-use App\Models\OutreachDraft;
-use App\Models\SequenceEnrollment;
 use App\Models\WhatsAppChannel;
-use App\Services\ChannelHealthService;
-use App\Services\Costs\UsageMeter;
-use App\Services\OptOutDetector;
+use App\Services\InboundMessageService;
 use App\Services\Prospecting\OutreachService;
-use App\Services\WhatsAppService;
 use App\Support\Phone;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -26,11 +17,8 @@ use Illuminate\Support\Facades\Log;
 class WebhookController extends Controller
 {
     public function __construct(
-        private readonly OptOutDetector $optOut,
-        private readonly WhatsAppService $whatsApp,
         private readonly OutreachService $outreach,
-        private readonly ChannelHealthService $health,
-        private readonly UsageMeter $meter,
+        private readonly InboundMessageService $inbound,
     ) {}
 
     public function twilio(Request $request): Response
@@ -115,15 +103,8 @@ class WebhookController extends Controller
 
         $this->outreach->markReplied($empresa->id, $phone);
 
-        // A long message may go to the AI to tell an opt-out from an objection.
-        $this->meter->within(
-            ['empresa_id' => $empresa->id, 'lead_id' => $conversation->lead_id, 'origem' => 'conversa'],
-            fn () => $this->checkOptOut($empresa, $phone, $text, $conversation),
-        );
-
-        if ($empresa->bot_ativo && $conversation->status !== 'blocked' && $this->isBotActiveNow($empresa)) {
-            AutoRespondJob::dispatch($conversation, $text)->delay(now()->addSeconds(3));
-        }
+        // Opt-out (which may ask the AI) and the bot run in the background: Twilio waits on this answer.
+        $this->inbound->received($message);
     }
 
     /**
@@ -170,65 +151,5 @@ class WebhookController extends Controller
             'error_code' => $errorCode ?: null,
         ]));
         broadcast(new MessageStatusUpdated($message));
-    }
-
-    private function isBotActiveNow(Empresa $empresa): bool
-    {
-        if (!$empresa->bot_horario_inicio || !$empresa->bot_horario_fim) {
-            return true;
-        }
-        $now = now($empresa->timezone ?: config('app.timezone'))->format('H:i:s');
-        return $now >= $empresa->bot_horario_inicio && $now <= $empresa->bot_horario_fim;
-    }
-
-    private function checkOptOut(Empresa $empresa, string $phone, string $text, Conversation $conversation): void
-    {
-        if ($conversation->status === 'blocked' || !$this->optOut->isOptOut($text)) {
-            return;
-        }
-
-        // Before recording it: afterwards nothing can be sent to the number.
-        $this->confirmOptOut($empresa, $conversation);
-
-        // Every lead of this empresa with the number, whatever format it was saved in.
-        $leadIds = Lead::where('empresa_id', $empresa->id)
-            ->where('telefone_e164', $phone)
-            ->whereNull('opted_out_at')
-            ->pluck('id');
-
-        Lead::whereKey($leadIds)->update(['opted_out_at' => now()]);
-        $conversation->update(['status' => 'blocked']);
-
-        SequenceEnrollment::whereIn('lead_id', $leadIds)
-            ->where('status', 'active')
-            ->update(['status' => 'opted_out']);
-
-        OutreachDraft::where('empresa_id', $empresa->id)
-            ->whereIn('lead_id', $leadIds)
-            ->whereIn('status', OutreachDraft::PENDING)
-            ->update(['status' => 'skipped']);
-
-        Log::info('Contact opted out', ['lead_ids' => $leadIds->all(), 'conversation_id' => $conversation->id]);
-
-        // Prospects asking to stop hurt the number's quality: the channels that approached them are checked.
-        $channelIds = OutreachAttempt::whereIn('lead_id', $leadIds)->whereNotNull('whatsapp_channel_id')->distinct()->pluck('whatsapp_channel_id');
-        WhatsAppChannel::whereKey($channelIds)->get()->each(fn (WhatsAppChannel $channel) => $this->health->checkOptOutRate($channel));
-    }
-
-    private function confirmOptOut(Empresa $empresa, Conversation $conversation): void
-    {
-        $text = __('messages.opt_out_confirmation', [], $empresa->locale ?: 'pt_BR');
-
-        $result = $this->whatsApp->sendTextMessage($conversation->telefone_e164, $text, $empresa->id, $conversation->whatsappChannel);
-
-        Message::create([
-            'conversation_id'    => $conversation->id,
-            'sender'             => 'user',
-            'message'            => $text,
-            'type'               => 'text',
-            'status'             => $result['success'] ? 'sent' : 'failed',
-            'twilio_message_sid' => $result['data']['sid'] ?? null,
-            'error_code'         => $result['code'] ?? null,
-        ]);
     }
 }

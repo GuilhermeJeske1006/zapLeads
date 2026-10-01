@@ -31,5 +31,9 @@
     "Register": "Registrarse",
     "Resend Verification Email": "Reenviar correo de verificación",
     "A new verification link has been sent to the email address you provided during registration.": "Se ha enviado un nuevo enlace de verificación al correo que proporcionaste durante el registro.",
-    "Log Out": "Cerrar sesión"
+    "Log Out": "Cerrar sesión",
+    "Hello!": "¡Hola!",
+    "Regards,": "Saludos,",
+    "If you're having trouble clicking the \":actionText\" button, copy and paste the URL below\ninto your web browser:": "Si el botón \":actionText\" no funciona, copia y pega la dirección de abajo en tu navegador:",
+    "All rights reserved.": "Todos los derechos reservados."
 }

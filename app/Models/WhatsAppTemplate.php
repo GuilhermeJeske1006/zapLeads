@@ -89,6 +89,25 @@ class WhatsAppTemplate extends Model
         return $variables;
     }
 
+    /**
+     * The first of $templates that $mensagem fills for this lead, with its placeholder values. One
+     * template may greet by name and another not: the lead's data decides which one goes.
+     *
+     * @param  iterable<WhatsAppTemplate>  $templates
+     * @return array{template: WhatsAppTemplate, variables: array<string, string>}|null
+     */
+    public static function firstFilled(iterable $templates, Lead $lead, string $mensagem): ?array
+    {
+        foreach ($templates as $template) {
+            $variables = $template->variablesFor($lead, $mensagem);
+            if ($variables !== null) {
+                return ['template' => $template, 'variables' => $variables];
+            }
+        }
+
+        return null;
+    }
+
     /** The body as the lead will read it. */
     public function render(array $variables): string
     {

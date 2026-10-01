@@ -383,15 +383,8 @@ class OutreachService
             throw new OutreachException('session_closed');
         }
 
-        // The first one this message fills: e.g. one template greets by name, another doesn't.
-        foreach ($templates as $template) {
-            $variables = $template->variablesFor($draft->lead, (string) $draft->texto_final);
-            if ($variables !== null) {
-                return ['template' => $template, 'variables' => $variables];
-            }
-        }
-
-        throw new OutreachException('template_incomplete');
+        return WhatsAppTemplate::firstFilled($templates, $draft->lead, (string) $draft->texto_final)
+            ?? throw new OutreachException('template_incomplete');
     }
 
     private function conversationOf(OutreachDraft $draft): ?Conversation

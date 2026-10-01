@@ -127,10 +127,9 @@ class Empresa extends Model
             ->first();
     }
 
-    public function getLogoUrlAttribute(): string
+    /** Null without a logo: the screens show the initial or an icon instead. */
+    public function getLogoUrlAttribute(): ?string
     {
-        return $this->logo
-            ? asset('storage/' . $this->logo)
-            : asset('images/default-store.png');
+        return $this->logo ? asset('storage/' . $this->logo) : null;
     }
 }

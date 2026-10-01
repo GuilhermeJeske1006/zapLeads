@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\SequenceEnrollment;
-use App\Services\WhatsAppService;
+use App\Services\LeadMessenger;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -17,11 +17,13 @@ class ProcessSequenceStepJob implements ShouldQueue
 
     public int $tries = 2;
 
+    public bool $deleteWhenMissingModels = true;
+
     public function __construct(
         private SequenceEnrollment $enrollment,
     ) {}
 
-    public function handle(WhatsAppService $whatsApp): void
+    public function handle(LeadMessenger $messenger): void
     {
         $enrollment = $this->enrollment->fresh();
 
@@ -50,21 +52,19 @@ class ProcessSequenceStepJob implements ShouldQueue
             $step->mensagem
         );
 
-        $channel = $lead->empresa?->defaultChannel();
+        // Outside the 24h session only an approved template goes; without one the step is skipped.
+        $outcome = $messenger->send($lead, $text, $step->tipo === 'image' && $step->imagem ? asset('storage/' . $step->imagem) : null);
 
-        $result = $step->tipo === 'image' && $step->imagem
-            ? $whatsApp->sendImageMessage($lead->telefone, asset('storage/' . $step->imagem), $text, $lead->empresa_id, $channel)
-            : $whatsApp->sendTextMessage($lead->telefone, $text, $lead->empresa_id, $channel);
-
-        if ($result['success'] ?? false) {
-            $lead->markApproached();
+        if ($outcome === LeadMessenger::OPTED_OUT) {
+            $enrollment->update(['status' => 'opted_out']);
+            return;
         }
 
-        if (!$result['success']) {
-            Log::warning('ProcessSequenceStepJob send failed', [
+        if (!in_array($outcome, [LeadMessenger::SENT, LeadMessenger::TEMPLATE], true)) {
+            Log::warning('ProcessSequenceStepJob step not sent', [
                 'enrollment_id' => $enrollment->id,
                 'step'          => $enrollment->current_step,
-                'error'         => $result['error'] ?? null,
+                'outcome'       => $outcome,
             ]);
         }
 

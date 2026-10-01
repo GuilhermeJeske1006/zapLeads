@@ -27,7 +27,8 @@ class AutoRespondJob implements ShouldQueue
     {
         $empresa = $this->conversation->empresa;
 
-        if (!$empresa?->bot_ativo) {
+        // The contact may have opted out since the message that triggered this.
+        if (!$empresa?->bot_ativo || $this->conversation->status === 'blocked') {
             return;
         }
 

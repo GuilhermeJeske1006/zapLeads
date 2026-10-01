@@ -672,4 +672,8 @@ return [
     'channel_quality_unknown' => 'Calidad sin evaluar',
     'channel_quality_checked' => 'Verificado en Twilio :when',
     'channel_messaging_limit' => 'Límite de Meta: :limit',
+    'channel_paused_mail_subject' => 'Prospección pausada en el número :canal',
+    'channel_paused_mail_effect' => 'Ningún contacto nuevo sale por ese número hasta que lo reanudes. Las respuestas, el chat y el bot siguen normales, y todavía puedes usar "Abrir en mi WhatsApp".',
+    'mail_greeting' => '¡Hola, :nome!',
+    'mail_salutation' => 'Equipo :app',
 ];
