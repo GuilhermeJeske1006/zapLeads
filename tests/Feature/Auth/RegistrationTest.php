@@ -9,9 +9,16 @@ class RegistrationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_registration_screen_can_be_rendered(): void
+    public function test_register_redirects_to_onboarding(): void
     {
         $response = $this->get('/register');
+
+        $response->assertRedirect(route('onboarding.register'));
+    }
+
+    public function test_registration_screen_can_be_rendered(): void
+    {
+        $response = $this->get(route('onboarding.register'));
 
         $response->assertStatus(200);
     }
@@ -26,6 +33,6 @@ class RegistrationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $response->assertRedirect(route('onboarding.empresa', absolute: false));
     }
 }
