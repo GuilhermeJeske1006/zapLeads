@@ -58,6 +58,12 @@
         </div>
 
         <div class="bg-gray-900/40 border border-gray-800 rounded-2xl p-6">
+            <h2 class="text-lg font-semibold text-white mb-1">{{ __('messages.whatsapp_templates') }}</h2>
+            <p class="text-sm text-gray-400 mb-5">{{ __('messages.whatsapp_templates_desc') }}</p>
+            <livewire:whats-app-templates :empresa="$empresa" />
+        </div>
+
+        <div class="bg-gray-900/40 border border-gray-800 rounded-2xl p-6">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <h2 class="text-lg font-semibold text-white">{{ __('messages.products') }}</h2>

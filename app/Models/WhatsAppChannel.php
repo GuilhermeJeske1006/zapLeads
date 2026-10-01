@@ -10,11 +10,12 @@ class WhatsAppChannel extends Model
 {
     protected $table = 'whatsapp_channels';
 
-    protected $fillable = ['empresa_id', 'nome', 'numero', 'is_default', 'ativo'];
+    protected $fillable = ['empresa_id', 'nome', 'numero', 'is_default', 'ativo', 'limite_diario_prospeccao'];
 
     protected $casts = [
-        'is_default' => 'boolean',
-        'ativo'      => 'boolean',
+        'is_default'               => 'boolean',
+        'ativo'                    => 'boolean',
+        'limite_diario_prospeccao' => 'integer',
     ];
 
     public function empresa(): BelongsTo

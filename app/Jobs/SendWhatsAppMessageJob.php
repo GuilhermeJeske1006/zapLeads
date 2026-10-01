@@ -30,8 +30,9 @@ class SendWhatsAppMessageJob implements ShouldQueue
         $empresaId    = $conversation->empresa_id;
         $channel      = $conversation->whatsappChannel;
 
-        $result = match ($this->message->type) {
-            'image' => $whatsApp->sendImageMessage($phone, $this->message->media_url, $this->message->message, $empresaId, $channel),
+        $result = match (true) {
+            $this->message->isTemplate() => $whatsApp->sendContentTemplate($phone, $this->message->content_sid, $this->message->content_variables ?? [], $empresaId, $channel),
+            $this->message->type === 'image' => $whatsApp->sendImageMessage($phone, $this->message->media_url, $this->message->message, $empresaId, $channel),
             default => $whatsApp->sendTextMessage($phone, $this->message->message, $empresaId, $channel),
         };
 
@@ -40,6 +41,7 @@ class SendWhatsAppMessageJob implements ShouldQueue
         $this->message->update([
             'status'             => $status,
             'twilio_message_sid' => $result['data']['sid'] ?? null,
+            'error_code'         => $result['code'] ?? null,
         ]);
 
         if ($result['success']) {

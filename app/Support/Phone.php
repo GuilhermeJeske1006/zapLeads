@@ -72,11 +72,17 @@ class Phone
         return in_array(self::lineType($e164), ['mobile', 'fixed_or_mobile'], true);
     }
 
-    public static function waMeLink(?string $raw, string $defaultRegion = 'BR'): ?string
+    /** Opens a chat in the user's own WhatsApp, with $text ready to send. */
+    public static function waMeLink(?string $raw, string $defaultRegion = 'BR', ?string $text = null): ?string
     {
         $e164 = self::canonical($raw, $defaultRegion);
+        if (!$e164) {
+            return null;
+        }
 
-        return $e164 ? 'https://wa.me/' . ltrim($e164, '+') : null;
+        $link = 'https://wa.me/' . ltrim($e164, '+');
+
+        return ($text ?? '') !== '' ? $link . '?text=' . rawurlencode($text) : $link;
     }
 
     private static function parse(string $candidate, string $region): ?PhoneNumber

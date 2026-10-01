@@ -15,11 +15,12 @@ class Conversation extends Model
 
     protected $fillable = [
         'empresa_id', 'whatsapp_channel_id', 'lead_id', 'telefone', 'telefone_e164', 'nome_contato',
-        'last_message', 'last_message_at', 'unread_count', 'status',
+        'last_message', 'last_message_at', 'last_inbound_at', 'unread_count', 'status',
     ];
 
     protected $casts = [
         'last_message_at' => 'datetime',
+        'last_inbound_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -49,6 +50,12 @@ class Conversation extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(Message::class);
+    }
+
+    /** WhatsApp accepts free text only within 24h of the contact's last message; after that, a template. */
+    public function isSessionOpen(): bool
+    {
+        return $this->last_inbound_at !== null && $this->last_inbound_at->gt(now()->subDay());
     }
 
     public function getDisplayNameAttribute(): string

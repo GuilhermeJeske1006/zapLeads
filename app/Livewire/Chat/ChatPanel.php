@@ -117,6 +117,7 @@ class ChatPanel extends Component
         $message->update([
             'status'             => $status,
             'twilio_message_sid' => $result['data']['sid'] ?? null,
+            'error_code'         => $result['code'] ?? null,
         ]);
 
         if ($result['success']) {

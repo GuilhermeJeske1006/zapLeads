@@ -104,6 +104,23 @@ class AIServiceTest extends TestCase
         $this->assertStringNotContainsString('telefone', json_encode($this->sentBody()));
     }
 
+    public function test_reply_classification_uses_fast_tier_and_rejects_unknown_intents(): void
+    {
+        $this->fakeClaude([$this->answer(['intencao' => 'opt_out']), $this->answer(['intencao' => 'talvez'])]);
+        $ai = app(AIService::class);
+
+        $this->assertSame('opt_out', $ai->classificarRespostaProspeccao('Me tira dessa lista'));
+        $this->assertNull($ai->classificarRespostaProspeccao('Hmm'));
+
+        $body = $this->sentBody();
+        $this->assertSame('claude-haiku-4-5-20251001', $body['model']);
+        $this->assertSame(
+            ['opt_out', 'objection', 'interest', 'other'],
+            $body['output_config']['format']['schema']['properties']['intencao']['enum'],
+        );
+        $this->assertArrayNotHasKey('effort', $body['output_config']);
+    }
+
     public function test_campaign_suggestion_is_not_cached_when_the_call_fails(): void
     {
         $this->fakeClaude([

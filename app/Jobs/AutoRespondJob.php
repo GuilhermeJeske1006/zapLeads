@@ -62,6 +62,7 @@ class AutoRespondJob implements ShouldQueue
         $message->update([
             'status'             => $result['success'] ? 'sent' : 'failed',
             'twilio_message_sid' => $result['data']['sid'] ?? null,
+            'error_code'         => $result['code'] ?? null,
         ]);
     }
 }

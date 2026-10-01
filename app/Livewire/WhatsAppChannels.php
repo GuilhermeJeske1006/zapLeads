@@ -18,6 +18,7 @@ class WhatsAppChannels extends Component
     public string $numero = '';
     public bool $isDefault = false;
     public bool $ativo = true;
+    public int $limiteDiario = 30;
     public ?int $editingId = null;
 
     protected function rules(): array
@@ -27,6 +28,7 @@ class WhatsAppChannels extends Component
             'numero'    => ['required', 'regex:/^whatsapp:\+[1-9]\d{7,14}$/'],
             'isDefault' => 'boolean',
             'ativo'     => 'boolean',
+            'limiteDiario' => 'required|integer|min:1|max:1000',
         ];
     }
 
@@ -63,6 +65,7 @@ class WhatsAppChannels extends Component
                 'numero'     => $this->numero,
                 'is_default' => $this->isDefault,
                 'ativo'      => $this->ativo,
+                'limite_diario_prospeccao' => $this->limiteDiario,
             ];
 
             if ($this->editingId) {
@@ -97,6 +100,7 @@ class WhatsAppChannels extends Component
         $this->numero    = $channel->numero;
         $this->isDefault = $channel->is_default;
         $this->ativo     = $channel->ativo;
+        $this->limiteDiario = $channel->limite_diario_prospeccao;
         $this->mode      = 'manual';
     }
 
@@ -135,6 +139,7 @@ class WhatsAppChannels extends Component
         $this->numero    = '';
         $this->isDefault = false;
         $this->ativo     = true;
+        $this->limiteDiario = 30;
         $this->resetValidation();
     }
 

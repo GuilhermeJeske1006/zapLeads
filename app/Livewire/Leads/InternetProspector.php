@@ -200,19 +200,19 @@ class InternetProspector extends Component
         ]);
     }
 
-    public function enviarMensagemIA(int $leadId): void
+    public function gerarAbordagem(int $leadId): void
     {
         $lead = $this->empresa->leads()->findOrFail($leadId);
-        $outreach = app(OutreachService::class);
 
         try {
-            $outreach->send($outreach->prepare($lead));
+            app(OutreachService::class)->request($lead);
         } catch (OutreachException $e) {
             $this->dispatch('toast', type: 'error', message: __($e->messageKey()));
             return;
         }
 
-        $this->dispatch('toast', type: 'success', message: __('messages.message_sent_ai'));
+        $this->dispatch('outreach-requested');
+        $this->dispatch('toast', type: 'success', message: __('messages.outreach_requested', ['nome' => $lead->nome]));
     }
 
     public function verNaTabelaDeLeads(): void

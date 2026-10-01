@@ -24,7 +24,6 @@ class LeadsTable extends Component
     public bool $showModal = false;
     public ?array $modalLead = null;
 
-    public bool $showNoChannelModal = false;
     public bool $showSelectChannelModal = false;
     public ?int $pendingLeadId = null;
     public array $channels = [];
@@ -184,7 +183,7 @@ class LeadsTable extends Component
         $this->dispatch('toast', type: 'success', message: __('messages.leads_deleted', ['count' => $count]));
     }
 
-    public function enviarMensagemIA(int $leadId): void
+    public function gerarAbordagem(int $leadId): void
     {
         $lead = $this->empresa->leads()->findOrFail($leadId);
 
@@ -198,11 +197,6 @@ class LeadsTable extends Component
 
         $channels = $this->empresa->whatsappChannels()->where('ativo', true)->get();
 
-        if ($channels->isEmpty()) {
-            $this->showNoChannelModal = true;
-            return;
-        }
-
         if ($channels->count() > 1) {
             $this->pendingLeadId = $leadId;
             $this->channels = $channels->map(fn ($c) => ['id' => $c->id, 'nome' => $c->nome, 'numero' => $c->numero])->toArray();
@@ -211,31 +205,24 @@ class LeadsTable extends Component
             return;
         }
 
-        $this->doEnviarMensagemIA($leadId, $channels->first());
+        // Without a channel the draft can still be sent from the user's own WhatsApp.
+        $this->pedirAbordagem($lead, $channels->first());
     }
 
-    public function confirmarCanalEEnviar(): void
+    public function confirmarCanal(): void
     {
         if (!$this->pendingLeadId || !$this->selectedChannelId) {
             return;
         }
 
         $channel = $this->empresa->whatsappChannels()->find($this->selectedChannelId);
-        if (!$channel) {
+        $lead = $this->empresa->leads()->find($this->pendingLeadId);
+        if (!$channel || !$lead) {
             return;
         }
 
-        $leadId = $this->pendingLeadId;
-        $this->showSelectChannelModal = false;
-        $this->pendingLeadId = null;
-        $this->channels = [];
-
-        $this->doEnviarMensagemIA($leadId, $channel);
-    }
-
-    public function fecharNoChannelModal(): void
-    {
-        $this->showNoChannelModal = false;
+        $this->fecharSelectChannelModal();
+        $this->pedirAbordagem($lead, $channel);
     }
 
     public function fecharSelectChannelModal(): void
@@ -245,19 +232,30 @@ class LeadsTable extends Component
         $this->channels = [];
     }
 
-    private function doEnviarMensagemIA(int $leadId, WhatsAppChannel $channel): void
+    /** "Ele respondeu": the lead answered a message the system didn't see. */
+    public function registrarResposta(int $leadId): void
     {
-        $lead = $this->empresa->leads()->findOrFail($leadId);
-        $outreach = app(OutreachService::class);
+        $lead = $this->empresa->leads()->find($leadId);
+        if (!$lead) {
+            return;
+        }
 
+        app(OutreachService::class)->registerReply($lead);
+        $this->fecharModal();
+        $this->dispatch('toast', type: 'success', message: __('messages.reply_registered'));
+    }
+
+    private function pedirAbordagem(Lead $lead, ?WhatsAppChannel $channel): void
+    {
         try {
-            $outreach->send($outreach->prepare($lead, $channel));
+            app(OutreachService::class)->request($lead, $channel);
         } catch (OutreachException $e) {
             $this->dispatch('toast', type: 'error', message: __($e->messageKey()));
             return;
         }
 
-        $this->dispatch('toast', type: 'success', message: __('messages.message_sent_ai'));
+        $this->dispatch('outreach-requested');
+        $this->dispatch('toast', type: 'success', message: __('messages.outreach_requested', ['nome' => $lead->nome]));
     }
 
     public function abrirModal(int $leadId): void
@@ -266,7 +264,9 @@ class LeadsTable extends Component
         if (!$lead) {
             return;
         }
-        $this->modalLead = $lead->toArray();
+        $this->modalLead = $lead->toArray() + [
+            'aguardando_resposta' => $lead->outreachAttempts()->whereNull('responded_at')->exists(),
+        ];
         $this->showModal  = true;
     }
 

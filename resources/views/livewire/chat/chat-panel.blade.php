@@ -179,9 +179,12 @@
                                     @elseif ($msg->status === 'read')
                                         <span class="text-xs text-blue-400 leading-none font-medium">✓✓</span>
                                     @elseif ($msg->status === 'failed')
-                                        <svg class="w-3.5 h-3.5 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+                                        <svg class="w-3.5 h-3.5 text-red-400" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
                                         </svg>
+                                        <span class="text-xs text-red-400">
+                                            {{ $msg->failureReason() }}
+                                        </span>
                                     @endif
                                 @endif
                             </div>
@@ -209,6 +212,9 @@
 
             {{-- Input --}}
             <div class="px-6 py-4 bg-gray-900 border-t border-gray-800">
+                @if (!$activeConversation->isSessionOpen())
+                    <p class="mb-2 text-xs text-amber-400">{{ __('messages.chat_session_closed') }}</p>
+                @endif
                 @if($channels->count() > 1)
                     <div class="mb-2 flex items-center gap-2">
                         <span class="text-xs text-gray-500">Enviar de:</span>

@@ -300,18 +300,19 @@
                                             </svg>
                                         </a>
 
-                                        <button wire:click="enviarMensagemIA({{ $lead['id'] }})"
+                                        <button wire:click="gerarAbordagem({{ $lead['id'] }})"
                                                 wire:loading.attr="disabled"
-                                                wire:target="enviarMensagemIA({{ $lead['id'] }})"
-                                                title="Enviar mensagem via IA"
+                                                wire:target="gerarAbordagem({{ $lead['id'] }})"
+                                                title="{{ __('messages.generate_outreach') }}"
+                                                aria-label="{{ __('messages.generate_outreach') }}"
                                                 class="inline-flex items-center justify-center w-7 h-7 bg-emerald-600/80 hover:bg-emerald-500
                                                        text-white rounded-lg transition-colors disabled:opacity-50">
-                                            <span wire:loading.remove wire:target="enviarMensagemIA({{ $lead['id'] }})">
+                                            <span wire:loading.remove wire:target="gerarAbordagem({{ $lead['id'] }})">
                                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                                                 </svg>
                                             </span>
-                                            <span wire:loading wire:target="enviarMensagemIA({{ $lead['id'] }})">
+                                            <span wire:loading wire:target="gerarAbordagem({{ $lead['id'] }})">
                                                 <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
                                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
@@ -501,13 +502,13 @@
                         </svg>
                         Abrir WhatsApp
                     </a>
-                    <button wire:click="enviarMensagemIA({{ $modalLead['id'] }}); fecharModal()"
+                    <button wire:click="gerarAbordagem({{ $modalLead['id'] }}); fecharModal()"
                             class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500
                                    text-white text-sm rounded-xl transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                         </svg>
-                        Enviar msg IA
+                        {{ __('messages.generate_outreach') }}
                     </button>
                 @endif
 

@@ -9,8 +9,12 @@ use App\Models\Conversation;
 use App\Models\Lead;
 use App\Models\Empresa;
 use App\Models\Message;
+use App\Models\OutreachDraft;
 use App\Models\SequenceEnrollment;
 use App\Models\WhatsAppChannel;
+use App\Services\OptOutDetector;
+use App\Services\Prospecting\OutreachService;
+use App\Services\WhatsAppService;
 use App\Support\Phone;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -18,6 +22,12 @@ use Illuminate\Support\Facades\Log;
 
 class WebhookController extends Controller
 {
+    public function __construct(
+        private readonly OptOutDetector $optOut,
+        private readonly WhatsAppService $whatsApp,
+        private readonly OutreachService $outreach,
+    ) {}
+
     public function twilio(Request $request): Response
     {
         $payload = $request->all();
@@ -27,7 +37,7 @@ class WebhookController extends Controller
         $messageSid = $payload['MessageSid'] ?? null;
 
         if ($messageSid && $status && !isset($payload['Body'])) {
-            $this->handleStatusCallback($messageSid, $status);
+            $this->handleStatusCallback($messageSid, $status, $payload['ErrorCode'] ?? null);
             return response('', 204);
         }
 
@@ -88,13 +98,17 @@ class WebhookController extends Controller
             'twilio_message_sid' => $messageSid,
         ]);
 
+        // last_inbound_at opens the 24h window for free-text replies.
         $conversation->update([
             'last_message'    => $text,
             'last_message_at' => now(),
+            'last_inbound_at' => now(),
             'unread_count'    => $conversation->unread_count + 1,
         ]);
 
         broadcast(new NewMessageReceived($message, $conversation));
+
+        $this->outreach->markReplied($empresa->id, $phone);
 
         $this->checkOptOut($empresa, $phone, $text, $conversation);
 
@@ -129,7 +143,7 @@ class WebhookController extends Controller
         return $empresaId ? $channels->firstWhere('empresa_id', $empresaId) : null;
     }
 
-    private function handleStatusCallback(string $messageSid, string $status): void
+    private function handleStatusCallback(string $messageSid, string $status, ?string $errorCode): void
     {
         $normalized = strtolower($status);
         if (!in_array($normalized, ['sent', 'delivered', 'read', 'failed', 'undelivered'])) {
@@ -141,7 +155,11 @@ class WebhookController extends Controller
         $message = Message::where('twilio_message_sid', $messageSid)->first();
         if (!$message) return;
 
-        $message->update(['status' => $finalStatus]);
+        // E.g. 63016: free text outside the 24h session, which needs a template.
+        $message->update(array_filter([
+            'status'     => $finalStatus,
+            'error_code' => $errorCode ?: null,
+        ]));
         broadcast(new MessageStatusUpdated($message));
     }
 
@@ -150,27 +168,24 @@ class WebhookController extends Controller
         if (!$empresa->bot_horario_inicio || !$empresa->bot_horario_fim) {
             return true;
         }
-        $now = now()->format('H:i:s');
+        $now = now($empresa->timezone ?: config('app.timezone'))->format('H:i:s');
         return $now >= $empresa->bot_horario_inicio && $now <= $empresa->bot_horario_fim;
     }
 
     private function checkOptOut(Empresa $empresa, string $phone, string $text, Conversation $conversation): void
     {
-        $optOutKeywords = ['sair', 'stop', 'parar', 'cancelar', 'não quero', 'nao quero', 'remover'];
-
-        if (!in_array(mb_strtolower(trim($text)), $optOutKeywords)) {
+        if ($conversation->status === 'blocked' || !$this->optOut->isOptOut($text)) {
             return;
         }
+
+        // Before recording it: afterwards nothing can be sent to the number.
+        $this->confirmOptOut($empresa, $conversation);
 
         // Every lead of this empresa with the number, whatever format it was saved in.
         $leadIds = Lead::where('empresa_id', $empresa->id)
             ->where('telefone_e164', $phone)
             ->whereNull('opted_out_at')
             ->pluck('id');
-
-        if ($leadIds->isEmpty()) {
-            return;
-        }
 
         Lead::whereKey($leadIds)->update(['opted_out_at' => now()]);
         $conversation->update(['status' => 'blocked']);
@@ -179,6 +194,28 @@ class WebhookController extends Controller
             ->where('status', 'active')
             ->update(['status' => 'opted_out']);
 
-        Log::info('Lead opted out', ['lead_ids' => $leadIds->all(), 'phone' => $phone]);
+        OutreachDraft::where('empresa_id', $empresa->id)
+            ->whereIn('lead_id', $leadIds)
+            ->whereIn('status', OutreachDraft::PENDING)
+            ->update(['status' => 'skipped']);
+
+        Log::info('Contact opted out', ['lead_ids' => $leadIds->all(), 'conversation_id' => $conversation->id]);
+    }
+
+    private function confirmOptOut(Empresa $empresa, Conversation $conversation): void
+    {
+        $text = __('messages.opt_out_confirmation', [], $empresa->locale ?: 'pt_BR');
+
+        $result = $this->whatsApp->sendTextMessage($conversation->telefone_e164, $text, $empresa->id, $conversation->whatsappChannel);
+
+        Message::create([
+            'conversation_id'    => $conversation->id,
+            'sender'             => 'user',
+            'message'            => $text,
+            'type'               => 'text',
+            'status'             => $result['success'] ? 'sent' : 'failed',
+            'twilio_message_sid' => $result['data']['sid'] ?? null,
+            'error_code'         => $result['code'] ?? null,
+        ]);
     }
 }

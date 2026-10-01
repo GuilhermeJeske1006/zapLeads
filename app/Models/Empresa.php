@@ -34,6 +34,11 @@ class Empresa extends Model
         'bot_horario_inicio',
         'bot_horario_fim',
         'ai_persona',
+        'prospeccao_envio_automatico',
+    ];
+
+    protected $casts = [
+        'prospeccao_envio_automatico' => 'boolean',
     ];
 
     protected $attributes = [
@@ -84,6 +89,16 @@ class Empresa extends Model
     public function whatsappChannels(): HasMany
     {
         return $this->hasMany(WhatsAppChannel::class);
+    }
+
+    public function whatsappTemplates(): HasMany
+    {
+        return $this->hasMany(WhatsAppTemplate::class);
+    }
+
+    public function outreachDrafts(): HasMany
+    {
+        return $this->hasMany(OutreachDraft::class);
     }
 
     public function defaultChannel(): ?WhatsAppChannel

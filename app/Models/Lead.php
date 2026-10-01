@@ -73,6 +73,11 @@ class Lead extends Model
         return $this->hasMany(Conversation::class);
     }
 
+    public function outreachAttempts(): HasMany
+    {
+        return $this->hasMany(OutreachAttempt::class);
+    }
+
     public const STATUSES = [
         'novo'        => ['label' => 'Novo',        'color' => 'gray'],
         'contatado'   => ['label' => 'Contatado',   'color' => 'blue'],

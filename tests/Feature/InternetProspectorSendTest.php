@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\GenerateOutreachDraftJob;
 use App\Livewire\Leads\InternetProspector;
 use App\Models\Empresa;
 use App\Models\Lead;
+use App\Models\OutreachDraft;
 use App\Models\User;
 use App\Services\AIService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -17,43 +19,43 @@ class InternetProspectorSendTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_requires_whatsapp_channel_before_generating_message(): void
+    public function test_queues_the_message_for_review_without_waiting_for_the_ai(): void
     {
         [$empresa, $lead] = $this->empresaWithLead();
 
         Livewire::test(InternetProspector::class, ['empresa' => $empresa])
-            ->call('enviarMensagemIA', $lead->id)
-            ->assertDispatched('toast', type: 'error', message: __('messages.whatsapp_channel_required'));
+            ->call('gerarAbordagem', $lead->id)
+            ->assertDispatched('outreach-requested')
+            ->assertDispatched('toast', type: 'success', message: __('messages.outreach_requested', ['nome' => 'Studio Bella']));
 
+        $this->assertSame('generating', OutreachDraft::sole()->status);
         $this->assertDatabaseCount('conversations', 0);
-        Queue::assertNothingPushed();
+        Queue::assertPushed(GenerateOutreachDraftJob::class);
     }
 
-    public function test_does_not_message_opted_out_lead(): void
+    public function test_does_not_approach_opted_out_lead(): void
     {
         [$empresa, $lead] = $this->empresaWithLead();
         $lead->update(['opted_out_at' => now()]);
-        $empresa->whatsappChannels()->create(['nome' => 'Vendas', 'numero' => 'whatsapp:+5547900000001', 'is_default' => true, 'ativo' => true]);
 
         Livewire::test(InternetProspector::class, ['empresa' => $empresa])
-            ->call('enviarMensagemIA', $lead->id)
+            ->call('gerarAbordagem', $lead->id)
             ->assertDispatched('toast', type: 'error', message: __('messages.lead_opted_out'));
 
-        $this->assertDatabaseCount('conversations', 0);
+        $this->assertDatabaseCount('outreach_drafts', 0);
         Queue::assertNothingPushed();
     }
 
-    public function test_does_not_message_lead_with_unreadable_phone(): void
+    public function test_does_not_approach_lead_with_unreadable_phone(): void
     {
         [$empresa, $lead] = $this->empresaWithLead();
         $lead->update(['telefone' => '9280-1006']);
-        $empresa->whatsappChannels()->create(['nome' => 'Vendas', 'numero' => 'whatsapp:+5547900000001', 'is_default' => true, 'ativo' => true]);
 
         Livewire::test(InternetProspector::class, ['empresa' => $empresa])
-            ->call('enviarMensagemIA', $lead->id)
+            ->call('gerarAbordagem', $lead->id)
             ->assertDispatched('toast', type: 'error', message: __('messages.lead_invalid_phone'));
 
-        $this->assertDatabaseCount('conversations', 0);
+        $this->assertDatabaseCount('outreach_drafts', 0);
     }
 
     /** @return array{Empresa, Lead} */

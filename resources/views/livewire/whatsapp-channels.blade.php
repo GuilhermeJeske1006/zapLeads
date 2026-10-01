@@ -157,6 +157,14 @@
                     </div>
                 </div>
 
+                <div class="max-w-xs">
+                    <label for="channel-daily-limit" class="block text-xs font-medium text-gray-400 mb-1.5">{{ __('messages.daily_prospecting_limit') }}</label>
+                    <input id="channel-daily-limit" wire:model="limiteDiario" type="number" min="1" max="1000"
+                        class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors">
+                    <p class="text-xs text-gray-400 mt-1">{{ __('messages.daily_prospecting_limit_hint') }}</p>
+                    @error('limiteDiario') <span class="text-red-400 text-xs mt-1 block">{{ $message }}</span> @enderror
+                </div>
+
                 <div class="flex items-center gap-5">
                     <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
                         <input wire:model="isDefault" type="checkbox" class="rounded border-gray-600 bg-gray-800 text-green-500 focus:ring-green-500">
@@ -260,7 +268,10 @@
                                         <span class="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-900/50 text-green-400 border border-green-800">padrão</span>
                                     @endif
                                 </td>
-                                <td class="py-2.5 pr-4 font-mono text-xs text-gray-400">{{ $channel->numero }}</td>
+                                <td class="py-2.5 pr-4 font-mono text-xs text-gray-400">
+                                    {{ $channel->numero }}
+                                    <span class="block font-sans text-gray-400">{{ __('messages.daily_limit_short', ['limit' => $channel->limite_diario_prospeccao]) }}</span>
+                                </td>
                                 <td class="py-2.5 pr-4">
                                     <button wire:click="toggleAtivo({{ $channel->id }})"
                                         class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium transition-colors

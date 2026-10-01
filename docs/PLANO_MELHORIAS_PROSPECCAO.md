@@ -175,6 +175,16 @@
 
 **Objetivo:** a 1ª mensagem chegar de fato, sem queimar o número.
 
+> **Status:** concluída em 2026-10-01 (código e testes; template e status callback ainda não testados contra a Twilio real).
+> - **Decisão de produto:** os dois modos. "Gerar abordagem" não exige canal (modo B funciona sem API); "Enviar pela API" exige canal ativo e, fora da janela de 24h, um template aprovado. Fluxo: `OutreachService::request()` → `GenerateOutreachDraftJob` → fila `Leads/OutreachQueue` em `/leads` → `approve()` agenda no `OutreachScheduler` → `SendOutreachDraftJob` (que refaz as checagens na hora do envio).
+> - **Status do lead:** o modo assistido grava `contatado` e "Ele respondeu" grava `interessado`; a Fase 5 renomeia para `abordado`/`respondeu` junto com os outros pontos.
+> - `outreach_drafts.variantes` guarda uma variante só (`padrao`) até a Fase 4. Estados do rascunho: `generating|draft|approved|sent|skipped|failed`.
+> - **Horário comercial** fixo (seg–sex 9h–18h, sáb 9h–12h) em `empresas.timezone`, até a Fase 2 trazer `regularOpeningHours`. Envios assistidos não contam no limite diário (saem do número do usuário).
+> - **Templates:** variáveis preenchidas com `lead_nome`, `lead_cidade`, `empresa_nome` ou `mensagem` (o texto revisado em uma linha). Variável vazia ou sem mapeamento bloqueia o envio (`template_incomplete`). A Fase 4 acrescenta as partes do `variaveis_template`. Mensagem de template = `messages.type = text` + `content_sid` (o enum de `type` tem CHECK no SQLite).
+> - **Opt-out:** termo com limite de palavra; mensagem de até 2 palavras com termo é opt-out direto; mais longa vai para o modelo `fast`; se a IA falhar, vale o opt-out. A confirmação sai antes de gravar o opt-out. Contato sem lead também fica bloqueado (e `assertReachable` passa a recusar conversa bloqueada); rascunhos pendentes viram `skipped`.
+> - **Status callback** em todo envio: no dev, `APP_URL` precisa ser a URL pública do túnel para a Twilio conseguir chamar de volta.
+> - **Pendente:** `FollowUpWhatsAppJob` e `ProcessSequenceStepJob` ainda mandam texto livre e vão falhar com 63016 fora da janela (cadência com template na Fase 4). O webhook faz o envio da confirmação de opt-out (e, em frase longa, a chamada à IA) de forma síncrona.
+
 ### Decisão de produto (escolher antes de implementar)
 
 Existem dois modos de abordagem a frio, com trade-offs reais:

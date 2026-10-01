@@ -134,6 +134,8 @@ Webhook: `POST /webhook/twilio` — receives inbound messages, fires `NewMessage
 - Webhook requests must carry a valid `X-Twilio-Signature` (`ValidateTwilioSignature` middleware). A local tunnel that rewrites the URL can set `TWILIO_WEBHOOK_VALIDATE=false`; ignored in production.
 - Inbound messages go to the empresa whose `WhatsAppChannel` owns the `To` number. Unknown numbers are dropped — never fall back to another empresa.
 - No global sender: every send goes through a channel of the empresa (the conversation's, else `Empresa::defaultChannel()`); without one, `WhatsAppService` returns `no_channel`. In dev, register the WhatsApp sandbox `whatsapp:+14155238886` as a channel.
+- 24h session: free text only within 24h of the contact's last message (`Conversation::isSessionOpen()`, `last_inbound_at`); outside it, an approved `WhatsAppTemplate` (Twilio ContentSid, `WhatsAppService::sendContentTemplate`). Every send passes `statusCallback`; Twilio errors (e.g. 63016) land in `messages.error_code`.
+- Prospect outreach never goes out unreviewed: `OutreachService::request()` → `GenerateOutreachDraftJob` → review queue (`Leads/OutreachQueue`) → `approve()` (API, scheduled by `OutreachScheduler`: daily cap per channel, business hours in `empresas.timezone`, 45–120 s gap) or `markAssisted()` (user sends from their own WhatsApp via `wa.me`).
 - Prospecting roadmap: `docs/PLANO_MELHORIAS_PROSPECCAO.md`.
 
 ## Patterns

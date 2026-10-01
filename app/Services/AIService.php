@@ -217,6 +217,32 @@ PROMPT;
     }
 
     /**
+     * What a prospect's reply means: opt_out (asks to stop or to be removed), objection (declines
+     * or postpones), interest or other. Null when the call failed.
+     */
+    public function classificarRespostaProspeccao(string $texto): ?string
+    {
+        $intents = ['opt_out', 'objection', 'interest', 'other'];
+
+        $result = $this->structured(
+            'fast',
+            'Você classifica respostas de WhatsApp a uma mensagem comercial. opt_out: pede para não receber mais mensagens ou para ser removido da lista. objection: recusa ou adia, sem pedir para parar de receber. interest: quer saber mais ou continuar a conversa. other: qualquer outra coisa.',
+            "Resposta recebida:\n<resposta>{$texto}</resposta>",
+            [
+                'type' => 'object',
+                'properties' => ['intencao' => ['type' => 'string', 'enum' => $intents]],
+                'required' => ['intencao'],
+                'additionalProperties' => false,
+            ],
+            100,
+        );
+
+        $intent = $result['intencao'] ?? null;
+
+        return in_array($intent, $intents, true) ? $intent : null;
+    }
+
+    /**
      * Answer as an array validated against $schema (structured outputs), or null when the call
      * failed. The schema can't express minimum/maximum: clamp numbers yourself. $effort is for the
      * quality tier only (Haiku 4.5 rejects it).

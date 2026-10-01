@@ -60,5 +60,9 @@ class PhoneTest extends TestCase
         $this->assertSame('https://wa.me/5547996918841', Phone::waMeLink('+55 47 99691-8841'));
         $this->assertSame('https://wa.me/554733221100', Phone::waMeLink('4733221100'));
         $this->assertNull(Phone::waMeLink(''));
+        $this->assertSame(
+            'https://wa.me/5547996918841?text=Oi%2C%20tudo%20bem%3F%0AVoc%C3%AAs%20atendem%20s%C3%A1bado%3F',
+            Phone::waMeLink('(47) 99691-8841', 'BR', "Oi, tudo bem?\nVocês atendem sábado?"),
+        );
     }
 }

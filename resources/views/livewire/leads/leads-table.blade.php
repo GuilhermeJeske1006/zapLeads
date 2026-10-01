@@ -257,16 +257,17 @@
                                         </svg>
                                     </a>
 
-                                    <button wire:click="enviarMensagemIA({{ $lead->id }})"
-                                            title="IA enviar"
+                                    <button wire:click="gerarAbordagem({{ $lead->id }})"
+                                            title="{{ __('messages.generate_outreach') }}"
+                                            aria-label="{{ __('messages.generate_outreach') }}"
                                             wire:loading.attr="disabled"
                                             wire:loading.class="opacity-60 cursor-not-allowed"
-                                            wire:target="enviarMensagemIA({{ $lead->id }})"
+                                            wire:target="gerarAbordagem({{ $lead->id }})"
                                             class="inline-flex items-center justify-center w-7 h-7
                                                    bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30
                                                    rounded-lg transition-colors">
-                                        <span wire:loading.remove wire:target="enviarMensagemIA({{ $lead->id }})">IA</span>
-                                        <span wire:loading wire:target="enviarMensagemIA({{ $lead->id }})">
+                                        <span wire:loading.remove wire:target="gerarAbordagem({{ $lead->id }})">IA</span>
+                                        <span wire:loading wire:target="gerarAbordagem({{ $lead->id }})">
                                             <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
                                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
@@ -316,53 +317,6 @@
         @endif
     </div>
 
-    {{-- No Channel Modal --}}
-    @teleport('body')
-    <div
-        x-data
-        x-show="$wire.showNoChannelModal"
-        x-cloak
-        class="fixed inset-0 flex items-center justify-center p-4"
-        style="z-index: 9999;"
-    >
-        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="fecharNoChannelModal"></div>
-        <div class="relative w-full max-w-md bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden">
-            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-800">
-                <h3 class="text-base font-semibold text-white flex items-center gap-2">
-                    <svg class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-                    </svg>
-                    Canal WhatsApp necessário
-                </h3>
-                <button wire:click="fecharNoChannelModal"
-                        class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                </button>
-            </div>
-            <div class="px-6 py-5 space-y-4">
-                <p class="text-sm text-gray-300">
-                    Para enviar mensagens via IA, você precisa ter ao menos um <strong class="text-white">canal WhatsApp ativo</strong> vinculado à sua empresa.
-                </p>
-                <p class="text-sm text-gray-500">
-                    Configure um canal nas configurações da sua empresa e volte para usar esta funcionalidade.
-                </p>
-            </div>
-            <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-800">
-                <button wire:click="fecharNoChannelModal"
-                        class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm rounded-xl transition-colors">
-                    Fechar
-                </button>
-                <a href="{{ route('empresa.edit') }}"
-                   class="px-5 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-xl transition-colors">
-                    Ir para Empresa
-                </a>
-            </div>
-        </div>
-    </div>
-    @endteleport
-
     {{-- Select Channel Modal --}}
     @teleport('body')
     <div
@@ -389,7 +343,7 @@
                 </button>
             </div>
             <div class="px-6 py-5 space-y-3">
-                <p class="text-sm text-gray-400">Você tem mais de um canal ativo. Escolha qual deseja usar para esta mensagem:</p>
+                <p class="text-sm text-gray-400">{{ __('messages.choose_outreach_channel') }}</p>
                 <div class="space-y-2">
                     @foreach ($channels as $ch)
                         <label class="flex items-center gap-3 p-3 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl cursor-pointer transition-colors
@@ -409,9 +363,9 @@
                         class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm rounded-xl transition-colors">
                     Cancelar
                 </button>
-                <button wire:click="confirmarCanalEEnviar"
+                <button wire:click="confirmarCanal"
                         class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-xl transition-colors">
-                    Enviar com IA
+                    {{ __('messages.generate_outreach') }}
                 </button>
             </div>
         </div>
@@ -645,6 +599,14 @@
                             </svg>
                             Abrir WhatsApp
                         </a>
+                    @endif
+
+                    @if (!empty($modalLead['aguardando_resposta']))
+                        <button wire:click="registrarResposta({{ $modalLead['id'] }})"
+                                class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20
+                                       text-emerald-400 border border-emerald-500/30 text-sm rounded-xl transition-colors">
+                            {{ __('messages.lead_replied') }}
+                        </button>
                     @endif
 
                     @if (!empty($modalLead['website']))

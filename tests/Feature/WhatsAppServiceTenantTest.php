@@ -112,6 +112,47 @@ class WhatsAppServiceTenantTest extends TestCase
         $this->assertTrue($service->sendTextMessage('(47) 99280-1006', 'Oi', $empresa->id, $channel)['success']);
     }
 
+    public function test_every_send_asks_for_delivery_status(): void
+    {
+        $empresa = $this->empresa();
+        $channel = $this->channel($empresa, 'whatsapp:+5547900000001');
+
+        $service = Mockery::mock(WhatsAppService::class)->makePartial()->shouldAllowMockingProtectedMethods();
+        $service->shouldReceive('createMessage')
+            ->once()
+            ->with('whatsapp:+5547992801006', Mockery::on(fn (array $params) => $params['statusCallback'] === route('webhook.twilio')))
+            ->andReturn(['sid' => 'SM1', 'status' => 'queued']);
+
+        $this->assertTrue($service->sendTextMessage('(47) 99280-1006', 'Oi', $empresa->id, $channel)['success']);
+    }
+
+    public function test_template_is_sent_by_content_sid_without_body(): void
+    {
+        $empresa = $this->empresa();
+        $channel = $this->channel($empresa, 'whatsapp:+5547900000001');
+
+        $service = Mockery::mock(WhatsAppService::class)->makePartial()->shouldAllowMockingProtectedMethods();
+        $service->shouldReceive('createMessage')
+            ->once()
+            ->with('whatsapp:+5547992801006', Mockery::on(fn (array $params) => $params['contentSid'] === 'HX123'
+                && $params['contentVariables'] === '{"1":"Carla"}'
+                && !isset($params['body'])))
+            ->andReturn(['sid' => 'SM1', 'status' => 'queued']);
+
+        $this->assertTrue($service->sendContentTemplate('(47) 99280-1006', 'HX123', ['1' => 'Carla'], $empresa->id, $channel)['success']);
+    }
+
+    public function test_opted_out_lead_does_not_receive_templates(): void
+    {
+        $empresa = $this->empresa();
+        $channel = $this->channel($empresa, 'whatsapp:+5547900000001');
+        $this->optedOutLead($empresa, '5547911112222');
+
+        $result = $this->serviceExpectingSends(0)->sendContentTemplate('5547911112222', 'HX123', [], $empresa->id, $channel);
+
+        $this->assertSame('opted_out', $result['error']);
+    }
+
     public function test_unreadable_phone_is_not_sent(): void
     {
         $empresa = $this->empresa();
