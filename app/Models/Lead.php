@@ -106,10 +106,10 @@ class Lead extends Model
             && $this->contact_confidence < LeadContact::MIN_WHATSAPP_CONFIDENCE;
     }
 
-    /** The AI match score from the search, until scoring v2 replaces lead_score. */
+    /** How well the lead matches the ideal customer (AI, 0-100); lead_score also weighs contact, pain and distance. */
     public function fitScore(): int
     {
-        return (int) ($this->ai_insights['match_score'] ?? $this->lead_score ?? 0);
+        return (int) ($this->ai_insights['match_score'] ?? 0);
     }
 
     public function outreachAttempts(): HasMany

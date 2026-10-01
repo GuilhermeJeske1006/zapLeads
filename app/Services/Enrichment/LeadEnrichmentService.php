@@ -11,6 +11,7 @@ use App\Services\Enrichment\Steps\GooglePlaceDetailsStep;
 use App\Services\Enrichment\Steps\LineTypeStep;
 use App\Services\Enrichment\Steps\WebResearchStep;
 use App\Services\Enrichment\Steps\WebsiteScrapeStep;
+use App\Services\Scoring\LeadScoringService;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Log;
 
@@ -31,6 +32,10 @@ class LeadEnrichmentService
 
     /** A lead enriched less than this long ago is not paid for again. */
     private const FRESH_DAYS = 30;
+
+    public function __construct(
+        private readonly LeadScoringService $scoring,
+    ) {}
 
     public function enrich(Lead $lead): void
     {
@@ -58,9 +63,23 @@ class LeadEnrichmentService
             }
         } else {
             app(ContactResolverStep::class)->run($lead, $ctx);
+            $this->rescore($lead);
         }
 
         $lead->fill(['enrichment_status' => 'done', 'enriched_at' => now()])->save();
+    }
+
+    /**
+     * Reviews, site and registry data make a better judge of fit and pain than the search had, and
+     * the contact confidence is now real. Done before "done" so the screen gets the new score with it.
+     */
+    private function rescore(Lead $lead): void
+    {
+        try {
+            $this->scoring->evaluate($lead->empresa, [$lead]);
+        } catch (\Throwable $e) {
+            Log::warning('Lead rescoring after enrichment failed', ['lead_id' => $lead->id, 'error' => $e->getMessage()]);
+        }
     }
 
     /** Queues the best-fit leads of a search, skipping those enriched recently. */

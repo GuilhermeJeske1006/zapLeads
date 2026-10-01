@@ -38,6 +38,7 @@ class PaidStepsTest extends TestCase
                 'texto' => 'O WhatsApp do Studio Bella é (47) 99999-8888, segundo o Instagram oficial. Dona: Carla Souza.',
                 'urls'  => ['https://www.instagram.com/studiobella.blu/', 'https://guiablumenau.com.br/studio-bella'],
             ]);
+            $ai->shouldReceive('avaliarLeads')->andReturn([]);
             $ai->shouldReceive('extrairContatosDaPesquisa')->once()->andReturn([
                 ['tipo' => 'whatsapp', 'valor' => '(47) 99999-8888', 'evidencia_url' => 'https://www.instagram.com/studiobella.blu'],
                 ['tipo' => 'whatsapp', 'valor' => '(47) 97777-6666', 'evidencia_url' => 'https://site-inventado.com'],
@@ -60,7 +61,10 @@ class PaidStepsTest extends TestCase
 
     public function test_research_is_skipped_when_disabled_for_weak_leads_or_with_a_reliable_whatsapp(): void
     {
-        $this->mock(AIService::class, fn (MockInterface $ai) => $ai->shouldNotReceive('pesquisarContatosNaWeb'));
+        $this->mock(AIService::class, function (MockInterface $ai) {
+            $ai->shouldNotReceive('pesquisarContatosNaWeb');
+            $ai->shouldReceive('avaliarLeads')->andReturn([]);
+        });
         $this->mock(TwilioLineTypeLookup::class, fn (MockInterface $m) => $m->shouldNotReceive('lineType'));
 
         app(LeadEnrichmentService::class)->enrich($this->lead(fit: 40));

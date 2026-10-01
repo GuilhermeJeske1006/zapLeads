@@ -72,7 +72,7 @@ class ProspectingServiceTest extends TestCase
         });
     }
 
-    public function test_new_search_keeps_score_and_insights_of_known_lead(): void
+    public function test_new_search_keeps_insights_of_known_lead_and_rescores_it(): void
     {
         $lead = Lead::create([
             'empresa_id'      => $this->empresa->id,
@@ -91,12 +91,16 @@ class ProspectingServiceTest extends TestCase
         $search = $this->runSearch();
 
         $lead->refresh();
+        $breakdown = $lead->ai_insights['score_breakdown'];
+        $this->assertSame('done', $search->status);
         $this->assertSame(1, Lead::count());
-        $this->assertSame(87, $lead->lead_score);
         $this->assertSame('contatado', $lead->status);
         $this->assertSame($search->id, $lead->prospecting_search_id);
         $this->assertSame(90, $lead->ai_insights['match_score']);
         $this->assertSame(4.8, $lead->ai_insights['rating']);
+        // The AI didn't answer: fit from the earlier search, plus distance (the place has no phone).
+        $this->assertSame([90, 0, null], [$breakdown['fit'], $breakdown['contatabilidade'], $breakdown['dor']]);
+        $this->assertSame((int) round(0.40 * 90 + 0.15 * $breakdown['proximidade']), $lead->lead_score);
     }
 
     public function test_queues_enrichment_of_the_best_fit_leads_not_enriched_recently(): void
@@ -108,8 +112,8 @@ class ProspectingServiceTest extends TestCase
         ]);
         $ai = Mockery::mock(AIService::class);
         $ai->shouldReceive('gerarKeywordsProspeccao')->andReturn(['padaria']);
-        $ai->shouldReceive('buscarLeadsPorPerfil')->andReturnUsing(fn ($d, $t, array $leads) => array_map(
-            fn (array $lead) => ['id' => $lead['id'], 'match_score' => (int) substr($lead['external_id'], 1) * 10, 'match_motivo' => 'ok'],
+        $ai->shouldReceive('avaliarLeads')->andReturnUsing(fn (array $empresa, array $leads) => array_map(
+            fn (array $lead) => ['id' => $lead['id'], 'fit' => (int) substr($lead['nome'], -1) * 10, 'motivo' => 'ok', 'dor' => 0, 'dor_provavel' => null, 'gancho' => null],
             $leads,
         ));
         $this->app->instance(AIService::class, $ai);
@@ -157,7 +161,7 @@ class ProspectingServiceTest extends TestCase
     {
         $ai = Mockery::mock(AIService::class);
         $ai->shouldReceive('gerarKeywordsProspeccao')->andReturn($keywords);
-        $ai->shouldReceive('buscarLeadsPorPerfil')->andReturn([]);
+        $ai->shouldReceive('avaliarLeads')->andReturn([]);
         $this->app->instance(AIService::class, $ai);
     }
 

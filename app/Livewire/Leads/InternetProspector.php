@@ -216,14 +216,16 @@ class InternetProspector extends Component
             return;
         }
 
+        $fields = ['telefone', 'enrichment_status', 'contact_confidence', 'decisor_nome', 'lead_score', 'ai_insights'];
         $fresh = $this->empresa->leads()
             ->whereKey($pending)
-            ->get(['id', 'telefone', 'enrichment_status', 'contact_confidence', 'decisor_nome'])
+            ->get(['id', ...$fields])
             ->keyBy('id');
 
+        // Updated in place, not re-sorted: rows jumping around while the user reads would be worse.
         foreach ($this->resultados as &$lead) {
             if ($update = $fresh->get($lead['id'])) {
-                $lead = array_merge($lead, $update->only(['telefone', 'enrichment_status', 'contact_confidence', 'decisor_nome']));
+                $lead = array_merge($lead, $update->only($fields));
             }
         }
         unset($lead);

@@ -9,6 +9,7 @@ use App\Services\Enrichment\LeadEnrichmentService;
 use App\Services\GeoService;
 use App\Services\Prospecting\OutreachException;
 use App\Services\Prospecting\OutreachService;
+use App\Services\Scoring\LeadScoringService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\Paginator;
 use Livewire\Attributes\On;
@@ -244,6 +245,18 @@ class LeadsTable extends Component
         app(LeadEnrichmentService::class)->queue($lead);
         $this->fecharModal();
         $this->dispatch('toast', type: 'success', message: __('messages.enrichment_queued', ['nome' => $lead->nome]));
+    }
+
+    /** Re-evaluates the prospect leads with the current sales profile, in the background. */
+    public function recalcularScores(): void
+    {
+        $count = app(LeadScoringService::class)->queueRescore($this->empresa);
+
+        $this->dispatch('toast', ...match (true) {
+            $count === null => ['type' => 'info', 'message' => __('messages.rescore_running')],
+            $count === 0    => ['type' => 'info', 'message' => __('messages.rescore_nothing')],
+            default         => ['type' => 'success', 'message' => __('messages.rescore_queued', ['count' => $count])],
+        });
     }
 
     /** "Ele respondeu": the lead answered a message the system didn't see. */

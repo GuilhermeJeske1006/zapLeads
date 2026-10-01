@@ -97,11 +97,15 @@ class LeadsTableOutreachTest extends TestCase
         $component = Livewire::test(InternetProspector::class, ['empresa' => $this->empresa])
             ->set('resultados', [$this->lead->fresh()->toArray()]);
 
-        $this->lead->update(['enrichment_status' => 'done', 'contact_confidence' => 20]);
+        $this->lead->update(['enrichment_status' => 'done', 'contact_confidence' => 20, 'lead_score' => 47, 'ai_insights' => ['gancho' => 'Nota 4,9']]);
         $component->call('pollSearch');
 
-        $this->assertSame(['done', 20], [$component->get('resultados')[0]['enrichment_status'], $component->get('resultados')[0]['contact_confidence']]);
-        $component->assertSee(__('messages.no_whatsapp_call'));
+        $row = $component->get('resultados')[0];
+        $this->assertSame(['done', 20, 47, 'Nota 4,9'], [$row['enrichment_status'], $row['contact_confidence'], $row['lead_score'], $row['ai_insights']['gancho']]);
+        $component->assertSee(__('messages.no_whatsapp_call'))
+            ->call('abrirModal', $this->lead->id)
+            ->assertSee(__('messages.score_breakdown_title'))
+            ->assertSee('Nota 4,9');
     }
 
     private function channel(string $numero, bool $isDefault = false): WhatsAppChannel

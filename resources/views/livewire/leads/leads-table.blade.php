@@ -1,6 +1,18 @@
 <div id="leads-table">
     {{-- Filters --}}
       <div class="ml-auto flex items-end mb-3 gap-2 pb-1.5">
+                <button wire:click="recalcularScores"
+                        wire:confirm="{{ __('messages.rescore_confirm') }}"
+                        title="{{ __('messages.rescore_hint') }}"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium
+                               bg-violet-500/10 hover:bg-violet-500/20 text-violet-300 border border-violet-500/30
+                               rounded-lg transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    {{ __('messages.rescore_leads') }}
+                </button>
+
                 <button wire:click="abrirAddModal"
                         class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium
                                bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-600/40
@@ -176,9 +188,12 @@
                                     {{ strtoupper(substr($lead->nome, 0, 1)) }}
                                 </div>
                                 <div class="min-w-0">
-                                    <p class="text-white font-medium text-xs truncate" title="{{ $lead->nome }}">
-                                        {{ $lead->nome }}
-                                    </p>
+                                    <div class="flex items-center gap-1.5 min-w-0">
+                                        <p class="text-white font-medium text-xs truncate" title="{{ $lead->nome }}">
+                                            {{ $lead->nome }}
+                                        </p>
+                                        <x-lead-score :score="$lead->lead_score" class="shrink-0" />
+                                    </div>
                                     @if ($lead->endereco)
                                         <p class="text-gray-500 text-xs truncate" title="{{ $lead->endereco }}">
                                             {{ $lead->endereco }}
@@ -497,7 +512,6 @@
                                 ['label' => __('messages.address'),    'value' => $modalLead['endereco'] ?: null],
                                 ['label' => __('messages.distance'),   'value' => isset($modalLead['distancia_km']) ? number_format((float)$modalLead['distancia_km'], 1).' km' : null],
                                 ['label' => 'Proximidade', 'value' => ($modalLead['is_nearby'] ?? false) ? 'Dentro do raio ✓' : 'Fora do raio'],
-                                ['label' => 'Score',       'value' => ($modalLead['lead_score'] ?? 0).' pts'],
                                 ['label' => 'Status',      'value' => \App\Models\Lead::STATUSES[$modalLead['status'] ?? 'novo']['label'] ?? 'Novo'],
                                 ['label' => 'Fonte',       'value' => $modalLead['source'] ?? null],
                                 ['label' => 'Cadastrado',  'value' => isset($modalLead['created_at']) ? \Carbon\Carbon::parse($modalLead['created_at'])->format('d/m/Y H:i') : null],
@@ -598,16 +612,12 @@
                         @endforelse
                     </div>
 
+                    <x-score-breakdown :lead="$modalLead" />
+
                     @if (!empty($modalLead['ai_insights']))
                         @php $ai = $modalLead['ai_insights']; @endphp
                         <div class="bg-violet-500/5 border border-violet-500/20 rounded-xl p-4 space-y-2">
                             <p class="text-xs font-semibold text-violet-400 uppercase tracking-wide">{{ __('messages.ai_analysis') }}</p>
-                            @if (!empty($ai['match_score']))
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs text-gray-400">Match:</span>
-                                    <span class="text-sm font-bold text-green-400">{{ $ai['match_score'] }}%</span>
-                                </div>
-                            @endif
                             @if (!empty($ai['match_motivo']))
                                 <p class="text-sm text-gray-300">{{ $ai['match_motivo'] }}</p>
                             @endif

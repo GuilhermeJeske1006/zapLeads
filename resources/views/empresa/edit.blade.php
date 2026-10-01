@@ -21,6 +21,12 @@
         </div>
 
         <div class="bg-gray-900/40 border border-gray-800 rounded-2xl p-6">
+            <h2 class="text-lg font-semibold text-white mb-1">{{ __('messages.sales_profile') }}</h2>
+            <p class="text-sm text-gray-500 mb-4">{{ __('messages.sales_profile_desc') }}</p>
+            <livewire:sales-profile :empresa="$empresa" />
+        </div>
+
+        <div class="bg-gray-900/40 border border-gray-800 rounded-2xl p-6">
             <h2 class="text-lg font-semibold text-white mb-1">{{ __('messages.ai_personality') }}</h2>
             <p class="text-sm text-gray-500 mb-4">{{ __('messages.ai_personality_desc') }}</p>
 

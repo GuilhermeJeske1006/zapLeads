@@ -76,32 +76,50 @@ class AIServiceTest extends TestCase
         $this->assertSame('Mensagem final', app(AIService::class)->text('quality', 'sys', 'oi'));
     }
 
-    public function test_ranks_every_lead_in_batches_and_one_bad_batch_does_not_zero_the_rest(): void
+    public function test_evaluates_every_lead_in_batches_and_one_bad_batch_does_not_lose_the_rest(): void
     {
-        $leads = array_map(fn (int $id) => [
-            'id' => $id, 'nome' => "Lead {$id}", 'distancia_km' => 1.2, 'website' => null,
-            'ai_insights' => ['types' => ['bakery'], 'rating' => 4.5, 'user_ratings_total' => 30],
-        ], range(1, 40));
+        $leads = array_map(fn (int $id) => ['id' => $id, 'nome' => "Lead {$id}", 'tipos_google' => ['bakery'], 'nota_google' => 4.5], range(1, 40));
+        $row = fn (int $id, int $fit, int $dor = 30, ?string $gancho = null) => [
+            'id' => $id, 'fit' => $fit, 'motivo' => 'Padaria no raio', 'dor' => $dor, 'dor_provavel' => null, 'gancho' => $gancho,
+        ];
 
         $this->fakeClaude([
             $this->answer(['leads' => [
-                ...array_map(fn (int $id) => ['id' => $id, 'match_score' => 70, 'match_motivo' => 'Padaria no raio'], range(1, 14)),
-                ['id' => 15, 'match_score' => 150, 'match_motivo' => 'Fora da escala'],
-                ['id' => 999, 'match_score' => 90, 'match_motivo' => 'Inventado'],
+                ...array_map(fn (int $id) => $row($id, 70), range(1, 13)),
+                $row(14, 80, dor: -5, gancho: '   '),
+                $row(15, 150, dor: 120, gancho: 'Nota 4,5 com 30 avaliações'),
+                $row(999, 90),
             ]]),
             $this->answer('{"leads": [', stopReason: 'max_tokens'),
-            $this->answer(['leads' => array_map(fn (int $id) => ['id' => $id, 'match_score' => 40, 'match_motivo' => 'Longe'], range(31, 40))]),
+            $this->answer(['leads' => array_map(fn (int $id) => $row($id, 40), range(31, 40))]),
         ]);
 
-        $ranked = collect(app(AIService::class)->buscarLeadsPorPerfil('Embalagens', 'Padarias', $leads))->keyBy('id');
+        $evaluated = collect(app(AIService::class)->avaliarLeads(['o_que_faz' => 'Embalagens', 'cliente_ideal' => 'Padarias'], $leads))->keyBy('id');
 
         $this->assertCount(3, $this->sent);
-        $this->assertCount(25, $ranked);
-        $this->assertSame(100, $ranked[15]['match_score']);
-        $this->assertFalse($ranked->has(999));
-        $this->assertFalse($ranked->has(20));
-        $this->assertSame(40, $ranked[40]['match_score']);
-        $this->assertStringNotContainsString('telefone', json_encode($this->sentBody()));
+        $this->assertCount(25, $evaluated);
+        $this->assertSame([100, 100, 'Nota 4,5 com 30 avaliações'], [$evaluated[15]['fit'], $evaluated[15]['dor'], $evaluated[15]['gancho']]);
+        $this->assertSame([0, null], [$evaluated[14]['dor'], $evaluated[14]['gancho']]);
+        $this->assertFalse($evaluated->has(999));
+        $this->assertFalse($evaluated->has(20));
+        $this->assertSame(40, $evaluated[40]['fit']);
+
+        $body = $this->sentBody();
+        $this->assertSame('claude-haiku-4-5-20251001', $body['model']);
+        $this->assertArrayNotHasKey('effort', $body['output_config']);
+        $this->assertStringContainsString('Padarias', $body['messages'][0]['content']);
+        $schema = $body['output_config']['format']['schema']['properties']['leads']['items'];
+        $this->assertSame(['id', 'fit', 'motivo', 'dor', 'dor_provavel', 'gancho'], $schema['required']);
+        $this->assertSame([['type' => 'string'], ['type' => 'null']], $schema['properties']['gancho']['anyOf']);
+    }
+
+    public function test_keywords_avoid_excluded_segments(): void
+    {
+        $this->fakeClaude([$this->answer(['keywords' => ['salão de beleza']])]);
+
+        app(AIService::class)->gerarKeywordsProspeccao('Agenda online', 'Salões', 'franquias');
+
+        $this->assertStringContainsString('Não gere termos destes segmentos: franquias', $this->sentBody()['messages'][0]['content']);
     }
 
     public function test_reply_classification_uses_fast_tier_and_rejects_unknown_intents(): void

@@ -344,6 +344,15 @@ Telefone celular de sócio é **dado pessoal**. Prospecção B2B costuma se apoi
 
 **Objetivo:** a lista mostrar primeiro quem tem mais chance de **responder e comprar**.
 
+> **Status:** concluída em 2026-10-01 (código e testes; a avaliação **não** foi chamada contra a API real, só com mocks).
+> - **Onde fica:** `App\Services\Scoring\LeadScoringService`. `AIService::avaliarLeads()` substituiu `buscarLeadsPorPerfil()` (modelo `fast`, lotes de 15) e devolve `fit`, `motivo`, `dor`, `dor_provavel` e `gancho` (os dois últimos `null` quando não há base). Em `ai_insights`: `match_score` (= fit, nome mantido para não migrar dados), `match_motivo`, `dor_score`, `dor_provavel`, `gancho`, `avaliado_em` e `score_breakdown`. A entrada da IA nunca leva telefone, e-mail ou nome do decisor; avaliações e texto do site vão marcados como dados de terceiros (contra prompt injection).
+> - **Quando roda:** (1) ao fim da busca, com o que o Google deu; (2) ao fim de cada enriquecimento, com reviews, "sobre" do site, porte, CNAE e tempo de mercado, antes de marcar `done` (a lista do prospector pega o score novo no polling, sem reordenar as linhas); (3) no botão "Recalcular scores" em `/leads`: até 300 leads de prospecção mais recentes, fora convertidos/descartados/opt-out, em jobs de 15 (`ScoreLeadsJob`), no máximo uma vez a cada 10 min por empresa. A reavaliação após o enriquecimento é uma chamada por lead (e não lotes de 15): custo desprezível no Haiku e o score chega junto com os contatos.
+> - **Componentes:** valor desconhecido conta 0 e aparece como `null` no breakdown ("sem dados"). Se a IA falhar, o lead mantém o fit/dor da avaliação anterior. Contatabilidade antes do enriquecimento é estimada pelo tipo de linha do telefone com as mesmas bases do `ContactScorer` (celular do Google 70, fixo 20), marcada `contatabilidade_estimada`. Proximidade usa o raio da busca do lead; sem busca, `empresas.raio_atendimento`.
+> - **Escopo:** só leads `internet` e `manual`. Leads do catálogo (`internal`) já demonstraram interesse e mantêm o score por distância do `LeadService`.
+> - `php artisan leads:score` recalcula o `lead_score` sem IA (a migration roda para trocar os 50 fixos; no dev os 293 leads ficaram entre 3 e 32, porque nenhum tem fit ainda: use "Recalcular scores").
+> - **ICP:** seção "Vendas" em `/empresa` (`Livewire\SalesProfile`), com o "o que faz" e o "cliente ideal" que o prospector já usava. Provas sociais: uma por linha, até 10. `segmentos_excluidos` também entra na geração de keywords.
+> - **Corrigido no caminho:** salvar a persona da IA trocava o slug da empresa (o link público do catálogo mudava) e o formulário principal não salvava com o próprio slug; `retry_after` da fila (90 s) era menor que o timeout dos jobs de busca (180 s) e de enriquecimento (120 s), então um job lento podia rodar duas vezes, inclusive as etapas pagas (agora 240 s). Os testes não chamam mais a API real da Anthropic: o `TestCase` liga um cliente que falha em qualquer chamada não simulada.
+
 ### Fórmula (persistir em `leads.lead_score` + breakdown em `ai_insights.score_breakdown`)
 
 ```

@@ -12,7 +12,7 @@ use App\Services\Geo\GeocodingService;
 use App\Services\Prospecting\Providers\GooglePlacesProvider;
 use App\Services\Prospecting\Providers\MapboxPlacesProvider;
 use App\Services\Prospecting\Providers\PlacesProviderInterface;
-use Illuminate\Support\Arr;
+use App\Services\Scoring\LeadScoringService;
 use Illuminate\Support\Facades\Log;
 
 class ProspectingService
@@ -27,6 +27,7 @@ class ProspectingService
         private readonly AIService $ai,
         private readonly GeocodingService $geo,
         private readonly LeadEnrichmentService $enrichment,
+        private readonly LeadScoringService $scoring,
     ) {
         $googleKey   = (string) config('services.google_places.key');
         $mapboxToken = (string) config('services.mapbox.token');
@@ -69,7 +70,7 @@ class ProspectingService
 
         $search->update(['status' => 'running', 'latitude' => $coords['lat'], 'longitude' => $coords['lng']]);
 
-        $keywords = $this->ai->gerarKeywordsProspeccao($search->descricao_empresa, $search->tipo_cliente);
+        $keywords = $this->ai->gerarKeywordsProspeccao($search->descricao_empresa, $search->tipo_cliente, $empresa->segmentos_excluidos);
         if (empty($keywords)) {
             $keywords = $this->fallbackKeywords($search->tipo_cliente);
         }
@@ -98,26 +99,9 @@ class ProspectingService
 
             Log::debug('ProspectingService leads upserted', ['count' => count($leads), 'empresa_id' => $empresa->id]);
 
-            // AI ranking — optional, non-blocking. Falls back to raw results if AI fails.
-            $ranked = $this->ai->buscarLeadsPorPerfil(
-                $search->descricao_empresa,
-                $search->tipo_cliente,
-                array_map(fn (Lead $l) => $l->toArray(), $leads),
-            );
-
-            Log::debug('ProspectingService AI ranked', ['ranked' => count($ranked), 'total' => count($leads)]);
-
-            if (!empty($ranked)) {
-                $rankedById = collect($ranked)->keyBy('id');
-                foreach ($leads as $lead) {
-                    $match = $rankedById->get($lead->id);
-                    if (!$match) {
-                        continue;
-                    }
-                    $lead->ai_insights = array_merge($lead->ai_insights ?? [], Arr::only($match, ['match_score', 'match_motivo']));
-                    $lead->save();
-                }
-            }
+            // Fit and pain from the AI, then lead_score. If the AI fails, leads are still scored by
+            // contact and distance (and keep the fit an earlier search found).
+            $this->scoring->evaluate($empresa, $leads);
 
             // Contacts, decision maker and context for the best-fit leads, in the background. Queued
             // before "done" so the results the screen loads already show them as pending.
@@ -247,8 +231,8 @@ class ProspectingService
         ];
 
         if ($lead) {
-            // Refreshes the place data but keeps what was learned about the lead (score, AI insights,
-            // and the primary contact chosen by enrichment, which may not be Google's number).
+            // Refreshes the place data but keeps what was learned about the lead (AI insights, and the
+            // primary contact chosen by enrichment, which may not be Google's number).
             if ($lead->enriched_at) {
                 unset($payload['telefone']);
             }
@@ -258,7 +242,6 @@ class ProspectingService
 
         return Lead::create($payload + [
             'empresa_id' => $empresa->id,
-            'lead_score' => 50,
             'ai_insights' => $placeInsights,
         ]);
     }

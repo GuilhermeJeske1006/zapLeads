@@ -103,6 +103,7 @@ app/
     Prospecting/Providers/     # GooglePlacesProvider, MapboxPlacesProvider
     Prospecting/OutreachService.php  # review queue, 24h window, templates
     Enrichment/                # LeadEnrichmentService + Steps/ (Place Details, site, CNPJ, web research, Lookup, resolver)
+    Scoring/LeadScoringService.php  # lead_score v2 (fit + contact + pain + proximity)
   Jobs/
     SendWhatsAppMessageJob.php
     FollowUpWhatsAppJob.php    # 24h delay follow-up
@@ -152,4 +153,5 @@ Webhook: `POST /webhook/twilio` — receives inbound messages, fires `NewMessage
 - AI: every Claude call goes through `AIService` (`structured()` for JSON via structured outputs, `text()` for prose) with a tier — `fast` (Haiku: keywords, ranking, classification; never pass effort) or `quality` (Sonnet 5.5: messages people read; effort `low`, maxTokens ≥ 2000 since thinking counts). Clamp numbers yourself: schemas can't express min/max. Tests fake the API with a Guzzle `MockHandler` transporter bound to `Anthropic\Client`.
 - Lead enrichment: `LeadEnrichmentService` runs `Services/Enrichment/Steps` as a cascade; steps add `ContactSignal`s to the context and `ContactResolverStep` writes `lead_contacts` (origem + evidencia on every contact, for LGPD) and picks the primary, which becomes `leads.telefone`. Paid steps (web search, Twilio Lookup) are off by default and only run for good leads.
 - Fetch URLs we don't control (lead sites, anything typed by users) only through `App\Support\Net\SafeHttp` (SSRF: public IPs only, pinned, redirects checked, 1 MB cap).
+- Lead score (v2): `lead_score` = 40% fit + 25% contact confidence + 20% pain + 15% proximity, from `LeadScoringService`; fit/pain/hook come from `AIService::avaliarLeads` and live in `ai_insights` (breakdown in `ai_insights.score_breakdown`). Re-evaluated after each search and enrichment; `php artisan leads:score` recomputes without AI. Only `internet`/`manual` leads; catalog leads keep their distance score. Sales profile (offer, pain, proofs, excluded segments) is on `empresas`, edited in `/empresa` → Vendas.
 - Phones: match, dedupe and send by `telefone_e164` (`App\Support\Phone::canonical()`, read with `empresas.country`); `telefone` keeps the raw input. Never compare raw `telefone` strings. `Lead`/`Conversation` fill `telefone_e164` on save; `php artisan leads:normalize-phones` re-runs the backfill.

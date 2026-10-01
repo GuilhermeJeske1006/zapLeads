@@ -127,7 +127,7 @@
     x-show="show"
     x-transition
     class="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg"
-    :class="type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'"
+    :class="{ success: 'bg-green-600 text-white', info: 'bg-gray-700 text-white' }[type] ?? 'bg-red-600 text-white'"
     style="display:none"
 >
     <span x-text="message"></span>

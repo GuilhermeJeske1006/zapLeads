@@ -141,18 +141,18 @@
                         <span class="font-semibold">{{ number_format($raioBuscaKm, 1) }} km</span>
                     </div>
                     @php
-                        $hotCount  = collect($resultados)->filter(fn($l) => (data_get($l,'ai_insights.match_score',0) >= 80))->count();
-                        $warmCount = collect($resultados)->filter(fn($l) => (data_get($l,'ai_insights.match_score',0) >= 50 && data_get($l,'ai_insights.match_score',0) < 80))->count();
+                        $hotCount  = collect($resultados)->filter(fn($l) => ($l['lead_score'] ?? 0) >= 80)->count();
+                        $warmCount = collect($resultados)->filter(fn($l) => ($l['lead_score'] ?? 0) >= 50 && ($l['lead_score'] ?? 0) < 80)->count();
                     @endphp
                     @if ($hotCount > 0)
                         <div class="flex justify-between">
-                            <span class="text-gray-500">Alto match (80%+)</span>
+                            <span class="text-gray-500">{{ __('messages.score_high') }}</span>
                             <span class="font-semibold text-green-400">{{ $hotCount }}</span>
                         </div>
                     @endif
                     @if ($warmCount > 0)
                         <div class="flex justify-between">
-                            <span class="text-gray-500">{{ __('messages.medium_match') }}</span>
+                            <span class="text-gray-500">{{ __('messages.score_medium') }}</span>
                             <span class="font-semibold text-yellow-400">{{ $warmCount }}</span>
                         </div>
                     @endif
@@ -194,7 +194,7 @@
                         <th class="px-4 py-3 text-left">Cliente</th>
                         <th class="px-3 py-3 text-left">Telefone</th>
                         <th class="px-3 py-3 text-left">Dist.</th>
-                        <th class="px-3 py-3 text-left">Match IA</th>
+                        <th class="px-3 py-3 text-left">{{ __('messages.lead_score') }}</th>
                         <th class="px-3 py-3 text-left">Status</th>
                         <th class="px-3 py-3 text-left">{{ __('messages.actions') }}</th>
                     </tr>
@@ -202,11 +202,6 @@
                 <tbody class="divide-y divide-gray-800/50">
                     @forelse ($resultados as $lead)
                         @php
-                            $matchScore  = data_get($lead, 'ai_insights.match_score', 0);
-                            $matchColor  = $matchScore >= 80 ? 'text-green-400 bg-green-500/20'
-                                         : ($matchScore >= 50 ? 'text-yellow-400 bg-yellow-500/20'
-                                         : 'text-gray-500 bg-gray-700/50');
-
                             $waLink  = \App\Support\Phone::waMeLink($lead['telefone'] ?? null, $empresa->country);
                             $website = !empty($lead['website']) ? $lead['website'] : null;
 
@@ -261,11 +256,9 @@
                                 {{ isset($lead['distancia_km']) ? number_format((float) $lead['distancia_km'], 1) . ' km' : '—' }}
                             </td>
 
-                            {{-- Match IA --}}
+                            {{-- Score --}}
                             <td class="px-3 py-3">
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold {{ $matchColor }}">
-                                    {{ (int) $matchScore }}%
-                                </span>
+                                <x-lead-score :score="$lead['lead_score'] ?? 0" />
                                 @if (!empty($lead['ai_insights']['match_motivo']))
                                     <p class="text-xs text-gray-600 mt-0.5 truncate" title="{{ $lead['ai_insights']['match_motivo'] }}">
                                         {{ $lead['ai_insights']['match_motivo'] }}
@@ -427,7 +420,6 @@
                             ['label' => 'Cidade',     'value' => $modalLead['cidade']   ?: null],
                             ['label' => 'Distância',  'value' => isset($modalLead['distancia_km']) ? number_format((float)$modalLead['distancia_km'], 1).' km' : null],
                             ['label' => 'Proximidade','value' => ($modalLead['is_nearby'] ?? false) ? 'Dentro do raio ✓' : 'Fora do raio'],
-                            ['label' => 'Score',      'value' => ($modalLead['lead_score'] ?? 0).' pts'],
                             ['label' => 'Status',     'value' => \App\Models\Lead::STATUSES[$modalLead['status'] ?? 'novo']['label'] ?? 'Novo'],
                             ['label' => 'Fonte',      'value' => $modalLead['source'] ?? $modalLead['external_source'] ?? null],
                             ['label' => 'Cadastrado', 'value' => isset($modalLead['created_at']) ? \Carbon\Carbon::parse($modalLead['created_at'])->format('d/m/Y H:i') : null],
@@ -454,17 +446,13 @@
                     </div>
                 @endif
 
+                <x-score-breakdown :lead="$modalLead" />
+
                 {{-- AI insights --}}
                 @if (!empty($modalLead['ai_insights']))
                     @php $ai = $modalLead['ai_insights']; @endphp
                     <div class="bg-violet-500/5 border border-violet-500/20 rounded-xl p-4 space-y-2">
                         <p class="text-xs font-semibold text-violet-400 uppercase tracking-wide">{{ __('messages.ai_analysis') }}</p>
-                        @if (!empty($ai['match_score']))
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs text-gray-400">Match:</span>
-                                <span class="text-sm font-bold text-green-400">{{ $ai['match_score'] }}%</span>
-                            </div>
-                        @endif
                         @if (!empty($ai['match_motivo']))
                             <p class="text-sm text-gray-300">{{ $ai['match_motivo'] }}</p>
                         @endif
@@ -672,8 +660,8 @@
             const lng = parseFloat(lead.longitude);
             if (!lat || !lng) return;
 
-            const matchScore = lead.ai_insights?.match_score ?? 0;
-            const color = matchScore >= 80 ? '#22c55e' : matchScore >= 50 ? '#f59e0b' : '#6b7280';
+            const score = lead.lead_score ?? 0;
+            const color = score >= 80 ? '#22c55e' : score >= 50 ? '#f59e0b' : '#6b7280';
             const phone = (lead.telefone || '').toString();
             const popup = [
                 `<b>${lead.nome}</b>`,

@@ -35,10 +35,17 @@ class Empresa extends Model
         'bot_horario_fim',
         'ai_persona',
         'prospeccao_envio_automatico',
+        'oferta_principal',
+        'problema_que_resolve',
+        'diferencial',
+        'provas_sociais',
+        'oferta_de_entrada',
+        'segmentos_excluidos',
     ];
 
     protected $casts = [
         'prospeccao_envio_automatico' => 'boolean',
+        'provas_sociais' => 'array',
     ];
 
     protected $attributes = [
