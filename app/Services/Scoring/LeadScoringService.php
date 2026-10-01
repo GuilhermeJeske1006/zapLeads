@@ -30,6 +30,9 @@ class LeadScoringService
 
     private const REVIEWS = 5;
 
+    /** Pain read only from rating and review counts is a guess: capped until reviews or site text exist. */
+    private const PAIN_WITHOUT_TEXT = 30;
+
     /** "Recalcular scores": newest leads re-evaluated per click, and leads per job (one AI request). */
     private const RESCORE_LIMIT = 300;
     private const RESCORE_JOB_SIZE = 15;
@@ -52,17 +55,17 @@ class LeadScoringService
         }
         $leads->loadMissing('prospectingSearch:id,radius_km');
 
-        $evaluations = collect($this->ai->avaliarLeads(
-            self::profile($empresa),
-            $leads->map(fn (Lead $lead) => self::facts($lead))->values()->all(),
-        ))->keyBy('id');
+        $facts = $leads->mapWithKeys(fn (Lead $lead) => [$lead->id => self::facts($lead)]);
+        $evaluations = collect($this->ai->avaliarLeads(self::profile($empresa), $facts->values()->all()))->keyBy('id');
 
         foreach ($leads as $lead) {
             if ($row = $evaluations->get($lead->id)) {
+                $hasText = isset($facts[$lead->id]['avaliacoes_recentes']) || isset($facts[$lead->id]['sobre_o_site']);
+
                 $lead->ai_insights = array_merge($lead->ai_insights ?? [], [
                     'match_score'  => $row['fit'],
                     'match_motivo' => $row['motivo'],
-                    'dor_score'    => $row['dor'],
+                    'dor_score'    => $hasText ? $row['dor'] : min($row['dor'], self::PAIN_WITHOUT_TEXT),
                     'dor_provavel' => $row['dor_provavel'],
                     'gancho'       => $row['gancho'],
                     'avaliado_em'  => now()->toIso8601String(),

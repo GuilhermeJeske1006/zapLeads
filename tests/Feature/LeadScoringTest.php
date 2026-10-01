@@ -126,6 +126,18 @@ class LeadScoringTest extends TestCase
         $this->assertSame(66, $lead->lead_score);
     }
 
+    public function test_pain_is_capped_until_there_are_reviews_or_site_text(): void
+    {
+        $lead = $this->lead(['ai_insights' => ['rating' => 4.9, 'user_ratings_total' => 263]]);
+        $this->mock(AIService::class, fn (MockInterface $ai) => $ai->shouldReceive('avaliarLeads')->andReturn([
+            ['id' => $lead->id, 'fit' => 60, 'motivo' => 'Salão', 'dor' => 60, 'dor_provavel' => null, 'gancho' => 'Nota 4,9 com 263 avaliações no Google'],
+        ]));
+
+        app(LeadScoringService::class)->evaluate($this->empresa, [$lead]);
+
+        $this->assertSame(30, $lead->fresh()->ai_insights['dor_score']);
+    }
+
     public function test_a_failed_evaluation_keeps_the_previous_fit(): void
     {
         $lead = $this->lead(['ai_insights' => ['match_score' => 60, 'match_motivo' => 'Salão', 'dor_score' => 40]]);
@@ -153,7 +165,7 @@ class LeadScoringTest extends TestCase
         $this->assertSame('done', $lead->enrichment_status);
         $this->assertSame(70, $lead->contact_confidence);
         $this->assertFalse($lead->ai_insights['score_breakdown']['contatabilidade_estimada']);
-        $this->assertSame(60, $lead->lead_score); // 0.40*80 + 0.25*70 + 0.20*50 = 59.5
+        $this->assertSame(56, $lead->lead_score); // 0.40*80 + 0.25*70 + 0.20*30 (no reviews: pain capped) = 55.5
     }
 
     public function test_rescore_queues_prospect_leads_still_in_play_once_per_ten_minutes(): void
