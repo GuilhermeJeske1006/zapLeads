@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateEmpresaRequest extends FormRequest
 {
@@ -21,7 +22,7 @@ class UpdateEmpresaRequest extends FormRequest
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
             'raio_atendimento' => 'nullable|integer|min:1|max:500',
-            'slug' => 'nullable|string|max:100|unique:empresas,slug',
+            'slug' => ['nullable', 'string', 'max:100', Rule::unique('empresas', 'slug')->ignore($this->user()?->empresa?->id)],
             'logo' => 'nullable|image|mimes:jpeg,png,webp|max:2048',
             'ai_persona' => 'nullable|string|max:2000',
         ];

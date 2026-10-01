@@ -24,7 +24,8 @@ class EmpresaController extends Controller
         $empresa = auth()->user()->empresa()->firstOrCreate([]);
         $data = $request->validated();
 
-        $data['slug'] = $data['slug'] ?? Str::slug($data['nome'] ?? 'empresa') . '-' . Str::random(4);
+        // The slug is the public catalog URL: forms that don't send it (AI persona) must not change it.
+        $data['slug'] = $data['slug'] ?? $empresa->slug ?? Str::slug($data['nome'] ?? $empresa->nome ?? 'empresa') . '-' . Str::random(4);
 
         if ($request->hasFile('logo')) {
             $data['logo'] = $request->file('logo')->store('empresas', 'public');
