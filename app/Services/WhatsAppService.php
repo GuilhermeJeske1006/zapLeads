@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Empresa;
 use App\Models\Lead;
 use App\Models\MessageLog;
 use App\Models\WhatsAppChannel;
@@ -10,21 +11,22 @@ use Twilio\Rest\Client;
 
 class WhatsAppService
 {
-    private Client $client;
-
-    public function __construct()
-    {
-        $this->client = new Client(config('twilio.sid'), config('twilio.token'));
-    }
+    private ?Client $client = null;
 
     public function sendTextMessage(string $phone, string $message, ?int $empresaId = null, ?WhatsAppChannel $channel = null): array
     {
         $phone = $this->normalizePhone($phone);
+
+        $channel = $this->resolveChannel($channel, $empresaId);
+        if (!$channel) {
+            return ['success' => false, 'error' => 'no_channel'];
+        }
+
+        $empresaId = (int) $channel->empresa_id;
         $from = $this->resolveFrom($channel);
 
-        $lead = $this->findLeadByPhone($phone);
-        if ($lead?->isOptedOut()) {
-            Log::info('Opted-out lead, skipping send', ['phone' => $phone]);
+        if ($this->findLeadByPhone($phone, $empresaId)?->isOptedOut()) {
+            Log::info('Opted-out lead, skipping send', ['phone' => $phone, 'empresa_id' => $empresaId]);
             return ['success' => false, 'error' => 'opted_out'];
         }
 
@@ -33,24 +35,17 @@ class WhatsAppService
                 'to' => "whatsapp:{$phone}",
                 'from' => $from,
                 'empresa_id' => $empresaId,
-                'whatsapp_channel_id' => $channel?->id,
+                'whatsapp_channel_id' => $channel->id,
             ]);
 
-            $result = $this->client->messages->create(
-                "whatsapp:{$phone}",
-                ['from' => $from, 'body' => $message]
-            );
+            $result = $this->createMessage("whatsapp:{$phone}", ['from' => $from, 'body' => $message]);
 
-            $this->log(
-                $empresaId ?: $lead?->empresa_id,
-                $phone, $message, 'text', 'outbound', 'success',
-                ['sid' => $result->sid, 'status' => $result->status]
-            );
+            $this->log($empresaId, $phone, $message, 'text', 'outbound', 'success', $result);
 
-            return ['success' => true, 'data' => ['sid' => $result->sid, 'status' => $result->status]];
+            return ['success' => true, 'data' => $result];
         } catch (\Throwable $e) {
             Log::error('WhatsApp sendTextMessage failed', ['phone' => $phone, 'error' => $e->getMessage()]);
-            $this->log($empresaId ?: $lead?->empresa_id, $phone, $message, 'text', 'outbound', 'failed', ['error' => $e->getMessage()]);
+            $this->log($empresaId, $phone, $message, 'text', 'outbound', 'failed', ['error' => $e->getMessage()]);
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
@@ -58,15 +53,26 @@ class WhatsAppService
     public function sendImageMessage(string $phone, string $imageUrl, string $caption = '', ?int $empresaId = null, ?WhatsAppChannel $channel = null): array
     {
         $phone = $this->normalizePhone($phone);
+
+        $channel = $this->resolveChannel($channel, $empresaId);
+        if (!$channel) {
+            return ['success' => false, 'error' => 'no_channel'];
+        }
+
+        $empresaId = (int) $channel->empresa_id;
         $from = $this->resolveFrom($channel);
-        $lead = $this->findLeadByPhone($phone);
+
+        if ($this->findLeadByPhone($phone, $empresaId)?->isOptedOut()) {
+            Log::info('Opted-out lead, skipping send', ['phone' => $phone, 'empresa_id' => $empresaId]);
+            return ['success' => false, 'error' => 'opted_out'];
+        }
 
         try {
             Log::debug('Twilio sendImageMessage', [
                 'to' => "whatsapp:{$phone}",
                 'from' => $from,
                 'empresa_id' => $empresaId,
-                'whatsapp_channel_id' => $channel?->id,
+                'whatsapp_channel_id' => $channel->id,
                 'has_caption' => $caption !== '',
             ]);
 
@@ -75,15 +81,11 @@ class WhatsAppService
                 $params['body'] = $caption;
             }
 
-            $result = $this->client->messages->create("whatsapp:{$phone}", $params);
+            $result = $this->createMessage("whatsapp:{$phone}", $params);
 
-            $this->log(
-                $empresaId ?: $lead?->empresa_id,
-                $phone, $caption, 'image', 'outbound', 'success',
-                ['sid' => $result->sid, 'status' => $result->status]
-            );
+            $this->log($empresaId, $phone, $caption, 'image', 'outbound', 'success', $result);
 
-            return ['success' => true, 'data' => ['sid' => $result->sid, 'status' => $result->status]];
+            return ['success' => true, 'data' => $result];
         } catch (\Throwable $e) {
             Log::error('WhatsApp sendImageMessage failed', ['phone' => $phone, 'error' => $e->getMessage()]);
             return ['success' => false, 'error' => $e->getMessage()];
@@ -106,7 +108,7 @@ class WhatsAppService
         $webhookUrl = route('webhook.twilio');
 
         try {
-            $numbers = $this->client->incomingPhoneNumbers->read(['phoneNumber' => $phone]);
+            $numbers = $this->client()->incomingPhoneNumbers->read(['phoneNumber' => $phone]);
 
             if (empty($numbers)) {
                 Log::warning('registerWebhook: number not found in Twilio account', ['numero' => $phone]);
@@ -115,7 +117,7 @@ class WhatsAppService
 
             $sid = $numbers[0]->sid;
 
-            $this->client->incomingPhoneNumbers($sid)->update([
+            $this->client()->incomingPhoneNumbers($sid)->update([
                 'smsUrl'    => $webhookUrl,
                 'smsMethod' => 'POST',
             ]);
@@ -129,14 +131,46 @@ class WhatsAppService
         }
     }
 
-    private function resolveFrom(?WhatsAppChannel $channel): string
+    /** @return array{sid: string, status: string} */
+    protected function createMessage(string $to, array $params): array
     {
-        $from = (string) ($channel?->numero ?: config('twilio.from'));
-        $from = trim($from);
+        $result = $this->client()->messages->create($to, $params);
 
-        if ($from === '') {
-            $from = (string) config('twilio.from');
+        return ['sid' => $result->sid, 'status' => $result->status];
+    }
+
+    private function client(): Client
+    {
+        return $this->client ??= new Client(config('twilio.sid'), config('twilio.token'));
+    }
+
+    /**
+     * Tenant messages always leave through one of the empresa's own channels. There is no
+     * platform-wide fallback sender: a lead must never hear from another tenant's number.
+     */
+    private function resolveChannel(?WhatsAppChannel $channel, ?int $empresaId): ?WhatsAppChannel
+    {
+        $channel ??= $empresaId ? Empresa::find($empresaId)?->defaultChannel() : null;
+
+        if (!$channel) {
+            Log::warning('WhatsApp send skipped: no active channel', ['empresa_id' => $empresaId]);
+            return null;
         }
+
+        if ($empresaId && (int) $channel->empresa_id !== $empresaId) {
+            Log::warning('WhatsApp send skipped: channel belongs to another empresa', [
+                'empresa_id' => $empresaId,
+                'whatsapp_channel_id' => $channel->id,
+            ]);
+            return null;
+        }
+
+        return $channel;
+    }
+
+    private function resolveFrom(WhatsAppChannel $channel): string
+    {
+        $from = trim((string) $channel->numero);
 
         // Twilio WhatsApp requires "whatsapp:+E164" format.
         if (!str_starts_with($from, 'whatsapp:')) {
@@ -177,15 +211,17 @@ class WhatsAppService
         return '+55' . $phone;
     }
 
-    private function findLeadByPhone(string $normalizedPhone): ?Lead
+    private function findLeadByPhone(string $normalizedPhone, int $empresaId): ?Lead
     {
         $digits = preg_replace('/\D/', '', $normalizedPhone);
         $withoutCountry = str_starts_with($digits, '55') ? substr($digits, 2) : $digits;
 
         return Lead::query()
-            ->where('telefone', $digits)
-            ->orWhere('telefone', $withoutCountry)
-            ->orWhere('telefone', '+' . $digits)
+            ->where('empresa_id', $empresaId)
+            ->where(fn ($q) => $q
+                ->where('telefone', $digits)
+                ->orWhere('telefone', $withoutCountry)
+                ->orWhere('telefone', '+' . $digits))
             ->first();
     }
 

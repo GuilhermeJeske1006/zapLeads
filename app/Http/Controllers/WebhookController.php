@@ -51,26 +51,25 @@ class WebhookController extends Controller
 
         $phone = preg_replace('/\D/', '', $rawFrom);
 
-        $channel = $toNumber
-            ? WhatsAppChannel::where('numero', $toNumber)->with('empresa')->first()
-            : null;
+        $channel = $this->resolveInboundChannel($toNumber, $phone);
 
-        $empresa = $channel?->empresa ?? Empresa::first();
-
-        if (!$empresa) {
+        if (!$channel) {
+            Log::warning('Twilio inbound to a number without channel, dropping', ['to' => $toNumber]);
             return;
         }
+
+        $empresa = $channel->empresa;
 
         $conversation = Conversation::firstOrCreate(
             ['empresa_id' => $empresa->id, 'telefone' => $phone],
             [
                 'nome_contato'        => $profileName,
-                'whatsapp_channel_id' => $channel?->id,
+                'whatsapp_channel_id' => $channel->id,
                 'status'              => 'active',
             ]
         );
 
-        if ($conversation->whatsapp_channel_id === null && $channel !== null) {
+        if ($conversation->whatsapp_channel_id === null) {
             $conversation->update(['whatsapp_channel_id' => $channel->id]);
         }
 
@@ -96,6 +95,32 @@ class WebhookController extends Controller
         if ($empresa->bot_ativo && $conversation->status !== 'blocked' && $this->isBotActiveNow($empresa)) {
             AutoRespondJob::dispatch($conversation, $text)->delay(now()->addSeconds(3));
         }
+    }
+
+    /**
+     * Inbound messages belong to the empresa that owns the receiving number. Never guess a
+     * tenant: a number without channel is dropped instead of landing in another inbox.
+     */
+    private function resolveInboundChannel(?string $toNumber, string $phone): ?WhatsAppChannel
+    {
+        if (!$toNumber) {
+            return null;
+        }
+
+        $channels = WhatsAppChannel::where('numero', $toNumber)->with('empresa')->get();
+
+        if ($channels->pluck('empresa_id')->unique()->count() <= 1) {
+            return $channels->first();
+        }
+
+        // Several empresas registered the same number (e.g. the Twilio sandbox in dev):
+        // route to the one already talking to this contact, or drop.
+        $empresaId = Conversation::whereIn('empresa_id', $channels->pluck('empresa_id'))
+            ->where('telefone', $phone)
+            ->orderByDesc('last_message_at')
+            ->value('empresa_id');
+
+        return $empresaId ? $channels->firstWhere('empresa_id', $empresaId) : null;
     }
 
     private function handleStatusCallback(string $messageSid, string $status): void

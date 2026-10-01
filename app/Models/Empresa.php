@@ -91,6 +91,7 @@ class Empresa extends Model
         return $this->whatsappChannels()
             ->where('ativo', true)
             ->orderByDesc('is_default')
+            ->orderBy('id')
             ->first();
     }
 

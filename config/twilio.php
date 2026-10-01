@@ -1,7 +1,9 @@
 <?php
 
 return [
-    'sid'          => env('TWILIO_SID'),
-    'token'        => env('TWILIO_AUTH_TOKEN'),
-    'from'         => env('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886'),
+    'sid'   => env('TWILIO_SID'),
+    'token' => env('TWILIO_AUTH_TOKEN'),
+
+    // Validate X-Twilio-Signature on inbound webhooks. Can only be disabled outside production.
+    'webhook_validate' => env('TWILIO_WEBHOOK_VALIDATE', true),
 ];

@@ -7,7 +7,7 @@ Multi-tenant (one `Empresa` per user). Onboarding wizard before app access.
 
 ## Stack
 
-- Laravel 11, Livewire 3, Alpine.js, Tailwind v4
+- Laravel 12, Livewire 4, Alpine.js, Tailwind v4
 - SQLite (dev), Pusher (WebSockets)
 - Twilio (WhatsApp), Anthropic Claude API (AI/leads), Stripe Cashier (billing)
 - Mapbox (geolocation + prospecting map)
@@ -34,6 +34,9 @@ Master admin: `php artisan make:master-admin`
 ```
 ANTHROPIC_API_KEY=
 MAPBOX_TOKEN=
+TWILIO_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_WEBHOOK_VALIDATE=true   # "false" only outside production
 STRIPE_KEY=pk_test_...
 STRIPE_SECRET=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
@@ -51,7 +54,7 @@ Pusher: set `BROADCAST_CONNECTION=pusher` + `PUSHER_*` vars for real-time chat.
 |--------|------|---------|
 | GET | `/loja/{slug}` | Public catalog — captures lead + geo |
 | POST | `/loja/{slug}/lead` | Lead capture endpoint |
-| POST | `/webhook/twilio` | Twilio inbound (no CSRF, no auth) |
+| POST | `/webhook/twilio` | Twilio inbound (no CSRF, no auth; Twilio signature required) |
 | POST | `/webhook/stripe` | Cashier webhook (no CSRF) |
 | GET | `/lang/{locale}` | Language switcher (pt_BR / es) |
 | * | `/onboarding/*` | Wizard steps (guest + auth variants) |
@@ -127,6 +130,11 @@ Stripe Cashier. Trial: 14 days. Price: R$97/mo (configurable via `PLAN_TRIAL_DAY
 
 Sandbox number: `+19899354903`
 Webhook: `POST /webhook/twilio` — receives inbound messages, fires `NewMessageReceived` event → Pusher → `ChatPanel`.
+
+- Webhook requests must carry a valid `X-Twilio-Signature` (`ValidateTwilioSignature` middleware). A local tunnel that rewrites the URL can set `TWILIO_WEBHOOK_VALIDATE=false`; ignored in production.
+- Inbound messages go to the empresa whose `WhatsAppChannel` owns the `To` number. Unknown numbers are dropped — never fall back to another empresa.
+- No global sender: every send goes through a channel of the empresa (the conversation's, else `Empresa::defaultChannel()`); without one, `WhatsAppService` returns `no_channel`. In dev, register the WhatsApp sandbox `whatsapp:+14155238886` as a channel.
+- Prospecting roadmap: `docs/PLANO_MELHORIAS_PROSPECCAO.md`.
 
 ## Patterns
 

@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'set.locale' => \App\Http\Middleware\SetLocale::class,
             'onboarding' => \App\Http\Middleware\EnsureOnboardingComplete::class,
             'master.admin' => \App\Http\Middleware\EnsureMasterAdmin::class,
+            'twilio.signature' => \App\Http\Middleware\ValidateTwilioSignature::class,
         ]);
         $middleware->web(append: [
             \App\Http\Middleware\SetLocale::class,

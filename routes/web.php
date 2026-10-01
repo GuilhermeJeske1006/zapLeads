@@ -23,9 +23,10 @@ Route::get('/lang/{locale}', [LangController::class, 'switch'])->name('lang.swit
 Route::get('/loja/{slug}', [PublicCatalogoController::class, 'show'])->name('catalogo.show');
 Route::post('/loja/{slug}/lead', [PublicCatalogoController::class, 'capturarLead'])->name('catalogo.lead');
 
-// Webhook (no CSRF, no auth)
+// Webhook (no CSRF, no auth — Twilio signature required)
 Route::post('/webhook/twilio', [WebhookController::class, 'twilio'])
     ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class])
+    ->middleware('twilio.signature')
     ->name('webhook.twilio');
 
 Route::post('/webhook/stripe', '\Laravel\Cashier\Http\Controllers\WebhookController@handleWebhook')

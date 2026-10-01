@@ -210,10 +210,25 @@ class InternetProspector extends Component
             return;
         }
 
+        if ($lead->isOptedOut()) {
+            $this->dispatch('toast', type: 'error', message: __('messages.lead_opted_out'));
+            return;
+        }
+
+        $channel = $this->empresa->defaultChannel();
+        if (!$channel) {
+            $this->dispatch('toast', type: 'error', message: __('messages.whatsapp_channel_required'));
+            return;
+        }
+
         $conversation = Conversation::firstOrCreate(
             ['empresa_id' => $this->empresa->id, 'telefone' => $lead->telefone],
-            ['lead_id' => $lead->id, 'nome_contato' => $lead->nome, 'status' => 'active']
+            ['lead_id' => $lead->id, 'nome_contato' => $lead->nome, 'status' => 'active', 'whatsapp_channel_id' => $channel->id]
         );
+
+        if (!$conversation->whatsapp_channel_id) {
+            $conversation->update(['whatsapp_channel_id' => $channel->id]);
+        }
 
         $text = $ai->gerarPrimeiraMensagemProspeccao($this->empresa, $lead);
         if (!trim($text)) {
