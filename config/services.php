@@ -37,6 +37,10 @@ return [
 
     'anthropic' => [
         'key' => env('ANTHROPIC_API_KEY'),
+        'models' => [
+            'fast'    => env('ANTHROPIC_MODEL_FAST', 'claude-haiku-4-5-20251001'),   // keywords, ranking, classificação
+            'quality' => env('ANTHROPIC_MODEL_QUALITY', 'claude-sonnet-5-5'),        // mensagens, dossiê
+        ],
     ],
 
     'google_places' => [

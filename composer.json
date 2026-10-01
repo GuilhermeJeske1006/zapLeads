@@ -7,7 +7,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "anthropic-ai/sdk": "^0.17.0",
+        "anthropic-ai/sdk": "^0.54",
         "giggsey/libphonenumber-for-php-lite": "^9.0",
         "intervention/image": "^3.11",
         "laravel/cashier": "^16.5",

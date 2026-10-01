@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use Anthropic\Client as AnthropicClient;
+use App\Services\AIService;
 use Illuminate\Console\Command;
 
 class SyncTranslationsCommand extends Command
@@ -10,8 +10,6 @@ class SyncTranslationsCommand extends Command
     protected $signature = 'app:sync-translations {--dry-run : Show missing keys without writing files}';
 
     protected $description = 'Scan lang files, find missing keys between locales, translate via AI, and write updated files.';
-
-    private AnthropicClient $client;
 
     public function handle(): int
     {
@@ -57,8 +55,6 @@ class SyncTranslationsCommand extends Command
             return self::FAILURE;
         }
 
-        $this->client = new AnthropicClient(config('services.anthropic.key'));
-
         foreach ($missing as $locale => $keys) {
             $sourceLocale = $locale === 'es' ? 'pt_BR' : 'es';
             $sourceLang = $locale === 'es' ? 'Brazilian Portuguese' : 'Spanish (Latin America)';
@@ -94,23 +90,19 @@ class SyncTranslationsCommand extends Command
 
     private function translate(string $value, string $from, string $to): ?string
     {
-        try {
-            $response = $this->client->messages()->create([
-                'model' => config('services.anthropic.model', 'claude-opus-4-7'),
-                'max_tokens' => 256,
-                'messages' => [
-                    [
-                        'role' => 'user',
-                        'content' => "Translate this UI string from {$from} to {$to}.\nString: \"{$value}\"\nReturn only the translation, no quotes, no explanation.",
-                    ],
-                ],
-            ]);
+        $translated = app(AIService::class)->text(
+            'fast',
+            'You translate user interface strings. Keep placeholders like :count untouched.',
+            "Translate this UI string from {$from} to {$to}.\nString: \"{$value}\"\nReturn only the translation, no quotes, no explanation.",
+            256,
+        );
 
-            return trim($response->content[0]->text ?? '');
-        } catch (\Throwable $e) {
-            $this->error("  Translation failed: " . $e->getMessage());
+        if ($translated === '') {
+            $this->error('  Translation failed (see the log).');
             return null;
         }
+
+        return $translated;
     }
 
     private function writeFile(string $locale, array $keys): void

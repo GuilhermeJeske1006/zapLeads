@@ -134,6 +134,8 @@
 
 ### 0d — IA: modelos configuráveis e JSON garantido
 
+> **Status:** concluída em 2026-09-30. O `anthropic-ai/sdk` foi atualizado de 0.17 para 0.54 (a 0.17 não tinha `fallbacks`); chamadas do tier `quality` usam o fallback de recusa do servidor (`fallbacks: "default"`). `classificarLead` foi removido em vez de migrado (não tinha nenhum uso). `sugerirCampanha` agora devolve `mensagem`/`horario`/`segmentacao`, as chaves que o dashboard lê, e não guarda falhas em cache. Keywords: de 5 a 8 (cada uma é uma busca paga no Google). O comando `app:sync-translations`, que chamava a API num formato inexistente, passou a usar o `AIService`.
+
 1. `config/services.php`:
    ```php
    'anthropic' => [
@@ -160,6 +162,8 @@
 - `InternetProspector` e `LeadsTable` passam a usar esse serviço (checagens de telefone, opt-out, canal e janela 24h num lugar só).
 
 ### 0f — Limpeza
+
+> **Status:** concluída em 2026-09-30.
 
 - Remover o componente `LeadFinder` e a tag em `resources/views/leads/index.blade.php:7`. A função "re-ranquear minha base" volta como botão em `/leads` com o scoring v2 (Fase 3).
 
@@ -549,7 +553,7 @@ PASSO 4 — Acompanhar (pipeline kanban)
 2. `fix(whatsapp): validate Twilio webhook signature and isolate tenants` (0a)
 3. `fix(phones): canonical E.164 with libphonenumber and Brazilian ninth digit` (0b)
 4. `fix(prospecting): follow searches by id, real provider, area-bound paging` (0c)
-5. `refactor: AIService com structured outputs e modelos configuráveis` (0d)
+5. `refactor(ai): model tiers, structured outputs and batched ranking` (0d)
 6. `refactor: OutreachService unifica envio` (0e)
 7. `chore: remove LeadFinder` (0f)
 8. `feat: janela 24h + templates Twilio + modo assistido` (1)

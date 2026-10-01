@@ -3,43 +3,46 @@
 namespace App\Services;
 
 use Anthropic\Client as AnthropicClient;
-use App\Models\Lead;
 use App\Models\Conversation;
 use App\Models\Empresa;
+use App\Models\Lead;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * Claude calls go through two tiers (config services.anthropic.models): "fast" for keywords,
+ * ranking and classification, "quality" for messages people read.
+ */
 class AIService
 {
-    private string $model = 'claude-opus-4-7';
+    /** Leads per ranking request: keeps every answer far below max_tokens. */
+    private const RANKING_BATCH = 15;
 
-    private AnthropicClient $client;
+    /** Models that accept the server-side refusal fallback ("default" routing). */
+    private const FALLBACK_MODELS = ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-opus-5', 'claude-fable-5-1'];
 
-    public function __construct()
-    {
-        $this->client = new AnthropicClient(apiKey: config('services.anthropic.key'));
-    }
+    private const RANKING_SCHEMA = [
+        'type' => 'object',
+        'properties' => [
+            'leads' => [
+                'type' => 'array',
+                'items' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'id'           => ['type' => 'integer'],
+                        'match_score'  => ['type' => 'integer', 'description' => 'De 0 a 100'],
+                        'match_motivo' => ['type' => 'string'],
+                    ],
+                    'required' => ['id', 'match_score', 'match_motivo'],
+                    'additionalProperties' => false,
+                ],
+            ],
+        ],
+        'required' => ['leads'],
+        'additionalProperties' => false,
+    ];
 
-    public function classificarLead(Lead $lead): array
-    {
-        $prompt = $this->buildLeadClassificationPrompt($lead);
-
-        try {
-            $response = $this->client->messages->create(
-                model: $this->model,
-                maxTokens: 1024,
-                messages: [['role' => 'user', 'content' => $prompt]],
-                system: 'Você é um especialista em vendas e análise de leads. Responda sempre em JSON válido sem markdown, apenas o objeto JSON puro.',
-            );
-
-            $text = $response->content[0]->text;
-            Log::debug('AIService classificarLead response', ['raw' => $text]);
-            return json_decode($text, true) ?? [];
-        } catch (\Throwable $e) {
-            Log::error('AIService classificarLead failed', ['error' => $e->getMessage()]);
-            return ['score' => $lead->lead_score, 'categoria' => 'cold', 'insights' => []];
-        }
-    }
+    private ?AnthropicClient $client = null;
 
     public function gerarMensagem(Conversation $conversation, string $contexto = ''): string
     {
@@ -55,7 +58,7 @@ class AIService
         if ($contexto) {
             $prompt .= "Contexto adicional: {$contexto}\n\n";
         }
-        $prompt .= "Gere uma resposta profissional e amigável para o cliente, em português do Brasil. Máximo 200 caracteres.";
+        $prompt .= "Gere uma resposta profissional e amigável para o cliente, em português do Brasil. Máximo 200 caracteres. Responda só com a mensagem.";
 
         $empresa = $conversation->empresa;
         $systemPrompt = ($empresa?->ai_persona && trim($empresa->ai_persona) !== '')
@@ -73,112 +76,99 @@ class AIService
             }
         }
 
-        try {
-            $response = $this->client->messages->create(
-                model: $this->model,
-                maxTokens: 300,
-                messages: [['role' => 'user', 'content' => $prompt]],
-                system: $systemPrompt,
-            );
-
-            $text = trim($response->content[0]->text);
-            Log::debug('AIService gerarMensagem response', ['raw' => $text]);
-            return $text;
-        } catch (\Throwable $e) {
-            Log::error('AIService gerarMensagem failed', ['error' => $e->getMessage()]);
-            return '';
-        }
+        return $this->text('quality', $systemPrompt, $prompt, 2000, 'low');
     }
 
     public function sugerirCampanha(array $leads, string $objetivo = ''): array
     {
         $cacheKey = 'ai_campanha_' . md5(serialize(array_column($leads, 'id')) . $objetivo);
+        if (($cached = Cache::get($cacheKey)) !== null) {
+            return $cached;
+        }
 
-        return Cache::remember($cacheKey, now()->addMinutes(15), function () use ($leads, $objetivo) {
-            $stats = [
-                'total' => count($leads),
-                'proximos' => collect($leads)->where('is_nearby', true)->count(),
-                'score_medio' => collect($leads)->avg('lead_score'),
-            ];
+        $stats = [
+            'total' => count($leads),
+            'proximos' => collect($leads)->where('is_nearby', true)->count(),
+            'score_medio' => collect($leads)->avg('lead_score'),
+        ];
 
-            $prompt = "Dados da campanha:\n" . json_encode($stats, JSON_PRETTY_PRINT);
-            if ($objetivo) {
-                $prompt .= "\nObjetivo: {$objetivo}";
-            }
-            $prompt .= "\n\nSugira: mensagem de campanha, melhor horário de envio e segmentação. Responda em JSON puro sem markdown, apenas o objeto JSON.";
+        $prompt = "Dados da campanha:\n" . json_encode($stats, JSON_PRETTY_PRINT);
+        if ($objetivo) {
+            $prompt .= "\nObjetivo: {$objetivo}";
+        }
+        $prompt .= "\n\nSugira a mensagem da campanha, o melhor horário de envio e a segmentação.";
 
-            try {
-                $response = $this->client->messages->create(
-                    model: $this->model,
-                    maxTokens: 1024,
-                    messages: [['role' => 'user', 'content' => $prompt]],
-                    system: 'Você é especialista em marketing digital e WhatsApp marketing. Responda sempre em JSON válido sem markdown, apenas o objeto JSON puro.',
-                );
+        $result = $this->structured('fast', 'Você é especialista em marketing digital e WhatsApp marketing.', $prompt, [
+            'type' => 'object',
+            'properties' => [
+                'mensagem'    => ['type' => 'string'],
+                'horario'     => ['type' => 'string'],
+                'segmentacao' => ['type' => 'string'],
+            ],
+            'required' => ['mensagem', 'horario', 'segmentacao'],
+            'additionalProperties' => false,
+        ], 1024);
 
-                $text = $response->content[0]->text;
-                Log::debug('AIService sugerirCampanha response', ['raw' => $text]);
-                $text = preg_replace('/^```(?:json)?\s*/m', '', $text);
-                $text = preg_replace('/\s*```$/m', '', $text);
+        // Failures are not cached, so the next click tries again.
+        if ($result !== null) {
+            Cache::put($cacheKey, $result, now()->addMinutes(15));
+        }
 
-                return json_decode(trim($text), true) ?? [];
-            } catch (\Throwable $e) {
-                Log::error('AIService sugerirCampanha failed', ['error' => $e->getMessage()]);
-                return [];
-            }
-        });
+        return $result ?? [];
     }
 
+    /**
+     * Fit (0-100) of each lead for the empresa's ideal customer. Sent in batches so no answer is
+     * truncated; a failed batch only leaves its own leads unscored.
+     *
+     * @param  array<int, array<string, mixed>>  $leads  Lead::toArray() rows
+     * @return array<int, array{id: int, match_score: int, match_motivo: string}>
+     */
     public function buscarLeadsPorPerfil(string $descricaoEmpresa, string $tipoCliente, array $leads): array
     {
-        if (empty($leads)) {
-            return [];
-        }
+        $ranked = [];
 
-        $leadsJson = json_encode(array_map(fn ($l) => [
-            'id'           => $l['id'],
-            'nome'         => $l['nome'],
-            'telefone'     => $l['telefone'],
-            'cidade'       => $l['cidade'],
-            'distancia_km' => $l['distancia_km'],
-            'is_nearby'    => $l['is_nearby'],
-            'lead_score'   => $l['lead_score'],
-            'ai_insights'  => $l['ai_insights'] ?? null,
-        ], $leads), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        foreach (array_chunk($leads, self::RANKING_BATCH) as $batch) {
+            $ids = array_map('intval', array_column($batch, 'id'));
 
-        $prompt = <<<PROMPT
-Empresa: {$descricaoEmpresa}
-Perfil de cliente desejado: {$tipoCliente}
+            $leadsJson = json_encode(array_map(fn (array $l) => [
+                'id'           => $l['id'],
+                'nome'         => $l['nome'],
+                'tipos'        => $l['ai_insights']['types'] ?? null,
+                'nota_google'  => $l['ai_insights']['rating'] ?? null,
+                'avaliacoes'   => $l['ai_insights']['user_ratings_total'] ?? null,
+                'distancia_km' => $l['distancia_km'] ?? null,
+                'tem_site'     => !empty($l['website']),
+            ], $batch), JSON_UNESCAPED_UNICODE);
 
-Lista de leads disponíveis:
+            $prompt = <<<PROMPT
+Empresa (quem vende): {$descricaoEmpresa}
+Cliente ideal: {$tipoCliente}
+
+Leads encontrados no Google Maps:
 {$leadsJson}
 
-Analise cada lead e retorne APENAS os que têm fit com o perfil desejado, ordenados do mais ao menos relevante.
-Para cada lead retornado inclua todos os campos originais mais:
-- "match_score": número 0-100 indicando compatibilidade
-- "match_motivo": string curta explicando por que esse lead é um bom cliente para essa empresa
-
-Retorne JSON puro (sem markdown), array de objetos:
-[{"id":..., "nome":..., "telefone":..., "cidade":..., "distancia_km":..., "is_nearby":..., "lead_score":..., "match_score":..., "match_motivo":...}]
+Dê a TODOS os leads da lista um match_score de 0 a 100: quanto o lead combina com o cliente ideal e tende a comprar da empresa.
+match_motivo: uma frase curta e concreta, baseada só nos dados do lead.
 PROMPT;
 
-        try {
-            $response = $this->client->messages->create(
-                model: $this->model,
-                maxTokens: 4096,
-                messages: [['role' => 'user', 'content' => $prompt]],
-                system: 'Você é especialista em análise de leads e segmentação de clientes. Retorne sempre JSON válido puro, sem markdown.',
-            );
+            $result = $this->structured('fast', 'Você é especialista em prospecção B2B e segmentação de clientes.', $prompt, self::RANKING_SCHEMA, 2048);
 
-            $raw  = $response->content[0]->text;
-            Log::debug('AIService buscarLeadsPorPerfil response', ['raw' => $raw]);
-            $text = preg_replace('/^```(?:json)?\s*/m', '', $raw);
-            $text = preg_replace('/\s*```$/m', '', $text);
+            foreach ($result['leads'] ?? [] as $row) {
+                // Ignores ids the model made up.
+                if (!in_array((int) $row['id'], $ids, true)) {
+                    continue;
+                }
 
-            return json_decode(trim($text), true) ?? [];
-        } catch (\Throwable $e) {
-            Log::error('AIService buscarLeadsPorPerfil failed', ['error' => $e->getMessage()]);
-            return [];
+                $ranked[] = [
+                    'id'           => (int) $row['id'],
+                    'match_score'  => self::clampScore($row['match_score']),
+                    'match_motivo' => (string) $row['match_motivo'],
+                ];
+            }
         }
+
+        return $ranked;
     }
 
     public function gerarKeywordsProspeccao(string $descricaoEmpresa, string $tipoCliente): array
@@ -187,40 +177,20 @@ PROMPT;
 Empresa: {$descricaoEmpresa}
 Cliente ideal: {$tipoCliente}
 
-Gere termos de busca (keywords) para encontrar no Google Maps empresas que tenham esse perfil (B2B/B2C conforme fizer sentido).
-Regras:
-- Retorne APENAS JSON puro, sem markdown.
-- Chave "keywords": array com 5 a 10 strings curtas.
-- Evite termos genéricos demais. Prefira segmentos/tipos de negócio.
-
-Formato:
-{"keywords":["...","..."]}
+Gere de 5 a 8 termos de busca (keywords) para encontrar no Google Maps empresas que tenham esse perfil (B2B/B2C conforme fizer sentido).
+Prefira segmentos/tipos de negócio; evite termos genéricos demais. Cada termo gera uma busca paga, então não repita variações do mesmo termo.
 PROMPT;
 
-        try {
-            $response = $this->client->messages->create(
-                model: $this->model,
-                maxTokens: 600,
-                messages: [['role' => 'user', 'content' => $prompt]],
-                system: 'Você é especialista em prospecção comercial. Responda sempre em JSON válido puro, sem markdown.',
-            );
+        $result = $this->structured('fast', 'Você é especialista em prospecção comercial.', $prompt, [
+            'type' => 'object',
+            'properties' => ['keywords' => ['type' => 'array', 'items' => ['type' => 'string']]],
+            'required' => ['keywords'],
+            'additionalProperties' => false,
+        ], 600);
 
-            $raw  = $response->content[0]->text;
-            Log::debug('AIService gerarKeywordsProspeccao response', ['raw' => $raw]);
-            $text = preg_replace('/^```(?:json)?\s*/m', '', $raw);
-            $text = preg_replace('/\s*```$/m', '', $text);
-            $json = json_decode(trim($text), true) ?? [];
+        $keywords = array_filter(array_map(fn ($k) => is_string($k) ? trim($k) : '', $result['keywords'] ?? []));
 
-            $keywords = $json['keywords'] ?? [];
-            if (!is_array($keywords)) {
-                return [];
-            }
-            $keywords = array_values(array_filter(array_map(fn ($k) => is_string($k) ? trim($k) : '', $keywords)));
-            return array_slice($keywords, 0, 10);
-        } catch (\Throwable $e) {
-            Log::error('AIService gerarKeywordsProspeccao failed', ['error' => $e->getMessage()]);
-            return [];
-        }
+        return array_slice(array_values(array_unique($keywords)), 0, 8);
     }
 
     public function gerarPrimeiraMensagemProspeccao(Empresa $empresa, Lead $lead): string
@@ -241,33 +211,107 @@ PROMPT;
         $prompt = "Crie uma primeira mensagem curta de prospecção via WhatsApp (PT-BR), educada e não invasiva.\n";
         $prompt .= "Objetivo: abrir conversa e entender se faz sentido.\n";
         $prompt .= "Dados:\n" . json_encode($contexto, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "\n";
-        $prompt .= "Regras: máximo 240 caracteres, sem emojis em excesso, inclua uma pergunta no final.";
+        $prompt .= "Regras: máximo 240 caracteres, sem emojis em excesso, inclua uma pergunta no final. Responda só com a mensagem.";
 
-        try {
-            $response = $this->client->messages->create(
-                model: $this->model,
-                maxTokens: 300,
-                messages: [['role' => 'user', 'content' => $prompt]],
-                system: 'Você é especialista em SDR e prospecção por WhatsApp. Seja direto, cordial e objetivo.',
-            );
-
-            $text = trim($response->content[0]->text);
-            Log::debug('AIService gerarPrimeiraMensagemProspeccao response', ['raw' => $text]);
-            return $text;
-        } catch (\Throwable $e) {
-            Log::error('AIService gerarPrimeiraMensagemProspeccao failed', ['error' => $e->getMessage()]);
-            return '';
-        }
+        return $this->text('quality', 'Você é especialista em SDR e prospecção por WhatsApp. Seja direto, cordial e objetivo.', $prompt, 2000, 'low');
     }
 
-    private function buildLeadClassificationPrompt(Lead $lead): string
+    /**
+     * Answer as an array validated against $schema (structured outputs), or null when the call
+     * failed. The schema can't express minimum/maximum: clamp numbers yourself. $effort is for the
+     * quality tier only (Haiku 4.5 rejects it).
+     */
+    public function structured(string $tier, string|array $system, string $prompt, array $schema, int $maxTokens, ?string $effort = null): ?array
     {
-        return sprintf(
-            "Classifique este lead:\nNome: %s\nCidade: %s\nDistância: %s km\nScore atual: %d\n\nRetorne JSON com: score (0-100), categoria (hot/warm/cold), motivo, sugestao_mensagem.",
-            $lead->nome,
-            $lead->cidade,
-            $lead->distancia_km,
-            $lead->lead_score
-        );
+        $response = $this->send($tier, $system, $prompt, $maxTokens, $effort, $schema);
+        if ($response === null) {
+            return null;
+        }
+
+        $data = json_decode($response['text'], true);
+        if (!is_array($data)) {
+            Log::warning('AIService structured answer is not JSON', ['raw' => mb_substr($response['text'], 0, 500)]);
+            return null;
+        }
+
+        return $data;
+    }
+
+    /** Free-text answer, or '' when the call failed. */
+    public function text(string $tier, string|array $system, string $prompt, int $maxTokens = 2000, ?string $effort = null): string
+    {
+        return trim($this->send($tier, $system, $prompt, $maxTokens, $effort)['text'] ?? '');
+    }
+
+    /**
+     * One Messages API call. Null when it failed, was refused or was cut by max_tokens: a truncated
+     * answer is worse than none.
+     *
+     * @return array{text: string, usage: array{input_tokens: int, output_tokens: int, cache_read_input_tokens: int, cache_creation_input_tokens: int}}|null
+     */
+    protected function send(string $tier, string|array $system, string $prompt, int $maxTokens, ?string $effort = null, ?array $schema = null): ?array
+    {
+        $model = (string) config("services.anthropic.models.{$tier}");
+        $outputConfig = array_filter([
+            'effort' => $effort,
+            'format' => $schema ? ['type' => 'json_schema', 'schema' => $schema] : null,
+        ]);
+
+        try {
+            $message = $this->client()->beta->messages->create(...[
+                'model'        => $model,
+                'maxTokens'    => $maxTokens,
+                'system'       => $system,
+                'messages'     => [['role' => 'user', 'content' => $prompt]],
+                'outputConfig' => $outputConfig ?: null,
+                ...$this->fallbacks($model),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('AIService request failed', ['model' => $model, 'error' => $e->getMessage()]);
+            return null;
+        }
+
+        if ($message->stopReason !== 'end_turn') {
+            Log::warning('AIService answer discarded', ['model' => $model, 'stop_reason' => $message->stopReason]);
+            return null;
+        }
+
+        // After a refusal fallback, only the text produced after the last switch is the answer.
+        $text = '';
+        foreach ($message->content as $block) {
+            if ($block->type === 'fallback') {
+                $text = '';
+            } elseif ($block->type === 'text') {
+                $text .= $block->text;
+            }
+        }
+
+        return [
+            'text' => $text,
+            'usage' => [
+                'input_tokens'                => $message->usage->inputTokens,
+                'output_tokens'               => $message->usage->outputTokens,
+                'cache_read_input_tokens'     => (int) $message->usage->cacheReadInputTokens,
+                'cache_creation_input_tokens' => (int) $message->usage->cacheCreationInputTokens,
+            ],
+        ];
+    }
+
+    /** Server-side retry on another model when the requested one declines for policy reasons. */
+    private function fallbacks(string $model): array
+    {
+        return in_array($model, self::FALLBACK_MODELS, true)
+            ? ['betas' => ['server-side-fallback-2026-07-01'], 'fallbacks' => 'default']
+            : [];
+    }
+
+    private function client(): AnthropicClient
+    {
+        return $this->client ??= app(AnthropicClient::class);
+    }
+
+    private static function clampScore(mixed $score): int
+    {
+        return max(0, min(100, (int) $score));
     }
 }

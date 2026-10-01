@@ -142,4 +142,5 @@ Webhook: `POST /webhook/twilio` — receives inbound messages, fires `NewMessage
 - Jobs dispatched from Services, not Controllers
 - `Empresa` scopes all tenant data — always filter by `empresa_id`
 - Public catalog routes are guest-accessible; everything else requires auth + onboarding
+- AI: every Claude call goes through `AIService` (`structured()` for JSON via structured outputs, `text()` for prose) with a tier — `fast` (Haiku: keywords, ranking, classification; never pass effort) or `quality` (Sonnet 5.5: messages people read; effort `low`, maxTokens ≥ 2000 since thinking counts). Clamp numbers yourself: schemas can't express min/max. Tests fake the API with a Guzzle `MockHandler` transporter bound to `Anthropic\Client`.
 - Phones: match, dedupe and send by `telefone_e164` (`App\Support\Phone::canonical()`, read with `empresas.country`); `telefone` keeps the raw input. Never compare raw `telefone` strings. `Lead`/`Conversation` fill `telefone_e164` on save; `php artisan leads:normalize-phones` re-runs the backfill.
