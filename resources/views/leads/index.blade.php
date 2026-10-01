@@ -3,8 +3,7 @@
 
     <div class="space-y-6">
 
-        {{-- AI Lead Finder + Prospecção --}}
-        <livewire:leads.lead-finder :empresa="$empresa" />
+        {{-- Prospecção --}}
         <livewire:leads.internet-prospector :empresa="$empresa" />
 
         {{-- Table --}}
