@@ -13,10 +13,12 @@ use App\Services\AIService;
 use App\Services\WhatsAppService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 class ChatPanel extends Component
 {
+    #[Locked]
     public ?int $activeConversationId = null;
     public ?Conversation $activeConversation = null;
     public string $newMessage = '';
@@ -50,8 +52,9 @@ class ChatPanel extends Component
 
     public function selectConversation(int $id): void
     {
-        $this->activeConversationId = $id;
-        $this->activeConversation = Conversation::with('messages')->find($id);
+        // Only the empresa's own conversations: the id comes from the browser.
+        $this->activeConversation = $this->empresa->conversations()->with('messages')->findOrFail($id);
+        $this->activeConversationId = $this->activeConversation->id;
         $this->conversationRepo->markAsRead($this->activeConversation);
         $this->aiSuggestion = '';
 
@@ -89,7 +92,7 @@ class ChatPanel extends Component
         }
 
         $message = Message::create([
-            'conversation_id' => $this->activeConversationId,
+            'conversation_id' => $this->activeConversation->id,
             'sender' => 'user',
             'message' => $this->newMessage,
             'type' => 'text',

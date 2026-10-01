@@ -5,10 +5,12 @@ namespace App\Livewire;
 use App\Jobs\CheckSenderRegistrationStatusJob;
 use App\Models\WhatsAppSenderRegistration;
 use App\Services\TwilioSenderService;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 class WhatsAppSenderWizard extends Component
 {
+    #[Locked]
     public int $empresaId;
 
     public int $step = 1;

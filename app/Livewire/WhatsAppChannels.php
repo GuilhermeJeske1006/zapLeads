@@ -6,10 +6,12 @@ use App\Models\Empresa;
 use App\Models\WhatsAppChannel;
 use App\Services\WhatsAppService;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 class WhatsAppChannels extends Component
 {
+    #[Locked]
     public int $empresaId;
 
     public ?string $mode = null; // null = selection screen, 'manual', 'byop'
