@@ -82,7 +82,10 @@ class LeadEnrichmentService
         }
     }
 
-    /** Queues the best-fit leads of a search, skipping those enriched recently. */
+    /**
+     * Queues the best-fit leads of a search, skipping those enriched recently. The search shows
+     * "enriching" with a count that moves as each lead finishes, then "done".
+     */
     public function queueSearch(ProspectingSearch $search): void
     {
         $leads = Lead::where('empresa_id', $search->empresa_id)
@@ -94,16 +97,28 @@ class LeadEnrichmentService
             ->values();
 
         if ($leads->isEmpty()) {
+            $search->advance('done');
             return;
         }
 
         Lead::whereKey($leads->modelKeys())->update(['enrichment_status' => 'pending']);
 
-        Bus::batch($leads->map(fn (Lead $lead) => new EnrichLeadJob($lead->id))->all())
-            ->name("enrichment:search:{$search->id}")
+        // Before dispatching: on a sync queue the batch finishes (and marks the search done) inside dispatch().
+        $search->advance('enriching', ['enriquecer' => $leads->count()]);
+        $searchId = $search->id;
+
+        $batch = Bus::batch($leads->map(fn (Lead $lead) => new EnrichLeadJob($lead->id))->all())
+            ->name("enrichment:search:{$searchId}")
             ->onQueue('enrichment')
             ->allowFailures()
+            // static: the callbacks are serialized with the batch, and must not carry this service along.
+            ->progress(static fn () => ProspectingSearch::find($searchId)?->broadcastProgress())
+            ->finally(static fn () => ProspectingSearch::find($searchId)?->advance('done'))
             ->dispatch();
+
+        // Saved alone so a "done" written meanwhile by the batch is kept.
+        $fresh = $search->fresh();
+        $fresh->update(['progress' => array_merge($fresh->progress ?? [], ['batch_id' => $batch->id])]);
     }
 
     /** One lead, on demand ("Buscar contatos"). */

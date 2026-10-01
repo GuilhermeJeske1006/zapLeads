@@ -20,7 +20,7 @@
             </form>
         </div>
 
-        <div class="bg-gray-900/40 border border-gray-800 rounded-2xl p-6">
+        <div id="vendas" class="bg-gray-900/40 border border-gray-800 rounded-2xl p-6 scroll-mt-6">
             <h2 class="text-lg font-semibold text-white mb-1">{{ __('messages.sales_profile') }}</h2>
             <p class="text-sm text-gray-500 mb-4">{{ __('messages.sales_profile_desc') }}</p>
             <livewire:sales-profile :empresa="$empresa" />
@@ -63,7 +63,7 @@
             <livewire:whatsapp-channels :empresa-id="$empresa->id" />
         </div>
 
-        <div class="bg-gray-900/40 border border-gray-800 rounded-2xl p-6">
+        <div id="templates" class="bg-gray-900/40 border border-gray-800 rounded-2xl p-6 scroll-mt-6">
             <h2 class="text-lg font-semibold text-white mb-1">{{ __('messages.whatsapp_templates') }}</h2>
             <p class="text-sm text-gray-400 mb-5">{{ __('messages.whatsapp_templates_desc') }}</p>
             <livewire:whats-app-templates :empresa="$empresa" />

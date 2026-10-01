@@ -2,13 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\EnrichLeadJob;
-use App\Livewire\Leads\InternetProspector;
 use App\Livewire\Leads\LeadsTable;
 use App\Models\Empresa;
 use App\Models\Lead;
-use App\Models\LeadContact;
-use App\Models\OutreachAttempt;
 use App\Models\OutreachDraft;
 use App\Models\User;
 use App\Models\WhatsAppChannel;
@@ -58,54 +54,37 @@ class LeadsTableOutreachTest extends TestCase
         $this->assertSame($other->id, OutreachDraft::sole()->whatsapp_channel_id);
     }
 
-    public function test_reply_to_an_assisted_message_is_registered(): void
+    public function test_status_change_from_the_list_uses_the_funnel(): void
     {
-        OutreachAttempt::create(['empresa_id' => $this->empresa->id, 'lead_id' => $this->lead->id, 'canal' => 'assisted', 'mensagem' => 'Oi!']);
-        $this->lead->update(['status' => 'contatado']);
-
         Livewire::test(LeadsTable::class, ['empresa' => $this->empresa])
-            ->call('abrirModal', $this->lead->id)
-            ->assertSee(__('messages.lead_replied'))
-            ->call('registrarResposta', $this->lead->id);
-
-        $this->assertNotNull(OutreachAttempt::sole()->responded_at);
-        $this->assertSame('interessado', $this->lead->fresh()->status);
-    }
-
-    public function test_contacts_are_searched_on_demand_and_listed_with_their_origin(): void
-    {
-        LeadContact::create([
-            'lead_id' => $this->lead->id, 'empresa_id' => $this->empresa->id, 'tipo' => 'whatsapp', 'valor' => '+5547999998888',
-            'valor_e164' => '+5547999998888', 'line_type' => 'mobile', 'origem' => 'website_wa_link', 'confianca' => 95,
-            'is_primary' => true, 'evidencia' => 'link de WhatsApp em https://studiobella.com.br',
-        ]);
-
-        Livewire::test(LeadsTable::class, ['empresa' => $this->empresa])
-            ->call('abrirModal', $this->lead->id)
-            ->assertSee('link de WhatsApp em https://studiobella.com.br')
-            ->assertSee(__('messages.contact_origin_website_wa_link'))
-            ->call('buscarContatos', $this->lead->id)
+            ->call('alterarStatus', $this->lead->id, 'contatado')
+            ->assertNotDispatched('toast')
+            ->call('alterarStatus', $this->lead->id, 'proposta')
             ->assertDispatched('toast', type: 'success');
 
-        $this->assertSame('pending', $this->lead->fresh()->enrichment_status);
-        Queue::assertPushedOn('enrichment', EnrichLeadJob::class);
+        $this->assertSame('proposta', $this->lead->fresh()->status);
     }
 
-    public function test_prospector_list_follows_enrichment_in_the_background(): void
+    public function test_list_filters_by_funnel_stage_and_origin_and_opens_the_dossier(): void
     {
-        $this->lead->update(['enrichment_status' => 'pending']);
-        $component = Livewire::test(InternetProspector::class, ['empresa' => $this->empresa])
-            ->set('resultados', [$this->lead->fresh()->toArray()]);
+        Lead::create(['empresa_id' => $this->empresa->id, 'nome' => 'Cliente do catalogo', 'telefone' => '', 'source' => 'internal', 'status' => 'respondeu']);
 
-        $this->lead->update(['enrichment_status' => 'done', 'contact_confidence' => 20, 'lead_score' => 47, 'ai_insights' => ['gancho' => 'Nota 4,9']]);
-        $component->call('pollSearch');
+        Livewire::test(LeadsTable::class, ['empresa' => $this->empresa])
+            ->assertSeeHtml("\$dispatch('open-lead-dossier', { id: {$this->lead->id} })")
+            ->set('filterStatus', 'respondeu')
+            ->assertSee('Cliente do catalogo')
+            ->assertDontSee('Studio Bella')
+            ->set('filterStatus', '')
+            ->set('filterSource', 'internet')
+            ->assertDontSee('Cliente do catalogo');
+    }
 
-        $row = $component->get('resultados')[0];
-        $this->assertSame(['done', 20, 47, 'Nota 4,9'], [$row['enrichment_status'], $row['contact_confidence'], $row['lead_score'], $row['ai_insights']['gancho']]);
-        $component->assertSee(__('messages.no_whatsapp_call'))
-            ->call('abrirModal', $this->lead->id)
-            ->assertSee(__('messages.score_breakdown_title'))
-            ->assertSee('Nota 4,9');
+    public function test_drafts_waiting_review_link_to_the_review_step(): void
+    {
+        OutreachDraft::create(['empresa_id' => $this->empresa->id, 'lead_id' => $this->lead->id, 'status' => 'draft', 'texto_final' => 'Oi!']);
+
+        Livewire::test(LeadsTable::class, ['empresa' => $this->empresa])
+            ->assertSeeHtml('href="' . e(route('prospeccao.index', ['passo' => 'abordagens'])) . '"');
     }
 
     private function channel(string $numero, bool $isDefault = false): WhatsAppChannel

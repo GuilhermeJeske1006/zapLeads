@@ -55,6 +55,8 @@ Pusher: set `BROADCAST_CONNECTION=pusher` + `PUSHER_*` vars for real-time chat.
 
 | Method | Path | Purpose |
 |--------|------|---------|
+| GET | `/prospeccao` | Prospecting wizard: perfil → resultados → revisar → acompanhar (`?passo=`, `?busca=`) |
+| GET | `/leads` | Lead base with filters (opens the dossier panel) |
 | GET | `/loja/{slug}` | Public catalog — captures lead + geo |
 | POST | `/loja/{slug}/lead` | Lead capture endpoint |
 | POST | `/webhook/twilio` | Twilio inbound (no CSRF, no auth; Twilio signature required) |
@@ -78,10 +80,12 @@ app/
   Livewire/
     Chat/ChatPanel.php         # WhatsApp Web-style real-time chat
     Dashboard/DashboardPanel.php  # metrics + Leaflet map + AI insights
+    Prospecting/ProspectingWizard.php  # /prospeccao steps 1–2 (search, live progress, map, results)
     Leads/
-      LeadsTable.php
-      LeadFinder.php
-      InternetProspector.php   # Mapbox/Google Places prospecting
+      LeadsTable.php           # /leads
+      LeadDossier.php          # side panel; open with the "open-lead-dossier" event
+      OutreachQueue.php        # step 3: review queue
+      PipelineBoard.php        # step 4: kanban by lead status (wire:sort)
     Onboarding/
       EmpresaStep.php
       PlanoStep.php            # Stripe trial/subscription
@@ -114,6 +118,7 @@ app/
     NewMessageReceived.php     # broadcast via Pusher
     MessageSent.php
     MessageStatusUpdated.php
+    ProspectingSearchUpdated.php  # search stage/progress, private channel empresa.{id}.prospecting
   Repositories/
     ConversationRepository.php
     LeadRepository.php
@@ -155,4 +160,6 @@ Webhook: `POST /webhook/twilio` — receives inbound messages, fires `NewMessage
 - Lead enrichment: `LeadEnrichmentService` runs `Services/Enrichment/Steps` as a cascade; steps add `ContactSignal`s to the context and `ContactResolverStep` writes `lead_contacts` (origem + evidencia on every contact, for LGPD) and picks the primary, which becomes `leads.telefone`. Paid steps (web search, Twilio Lookup) are off by default and only run for good leads.
 - Fetch URLs we don't control (lead sites, anything typed by users) only through `App\Support\Net\SafeHttp` (SSRF: public IPs only, pinned, redirects checked, 1 MB cap).
 - Lead score (v2): `lead_score` = 40% fit + 25% contact confidence + 20% pain + 15% proximity, from `LeadScoringService`; fit/pain/hook come from `AIService::avaliarLeads` and live in `ai_insights` (breakdown in `ai_insights.score_breakdown`). Re-evaluated after each search and enrichment; `php artisan leads:score` recomputes without AI. Only `internet`/`manual` leads; catalog leads keep their distance score. Sales profile (offer, pain, proofs, excluded segments) is on `empresas`, edited in `/empresa` → Vendas.
+- Lead status is the funnel: `novo, abordado, respondeu, reuniao, proposta, convertido, descartado` (labels in `lang`, `messages.status_*`). Use `Lead::markApproached()` / `markReplied()` for automatic moves and `OutreachService::setStatus()` for user moves (it ends the cold cadence).
+- Prospecting search progress: `prospecting_searches.stage` + `progress`, advanced with `ProspectingSearch::advance()`, which broadcasts (`ShouldBroadcastNow`; a broadcaster that is down only logs). Screens also poll while `isActive()`. `error` stores a translation key.
 - Phones: match, dedupe and send by `telefone_e164` (`App\Support\Phone::canonical()`, read with `empresas.country`); `telefone` keeps the raw input. Never compare raw `telefone` strings. `Lead`/`Conversation` fill `telefone_e164` on save; `php artisan leads:normalize-phones` re-runs the backfill.

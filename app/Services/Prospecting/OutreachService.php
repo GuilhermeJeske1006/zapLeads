@@ -238,9 +238,7 @@ class OutreachService
 
         $draft->update(['texto_final' => trim($texto), 'status' => 'sent', 'sent_at' => now()]);
 
-        if (($draft->lead->status ?? 'novo') === 'novo') {
-            $draft->lead->update(['status' => 'contatado']);
-        }
+        $draft->lead->markApproached();
 
         $attempt = $this->recordAttempt($draft, 'assisted', $draft->texto_final);
         $this->cadence->onSent($draft);
@@ -273,7 +271,7 @@ class OutreachService
         $draft->update(['status' => 'draft', 'erro' => null, 'scheduled_for' => null]);
     }
 
-    /** An inbound message from the number credits the last attempt to reach it and ends the cold cadence. */
+    /** An inbound message from the number credits the last attempt to reach it, ends the cold cadence and moves the lead to "respondeu". */
     public function markReplied(int $empresaId, string $e164): void
     {
         OutreachAttempt::where('empresa_id', $empresaId)
@@ -284,7 +282,10 @@ class OutreachService
             ?->update(['responded_at' => now()]);
 
         Lead::where('empresa_id', $empresaId)->where('telefone_e164', $e164)->get()
-            ->each(fn (Lead $lead) => $this->cadence->stop($lead));
+            ->each(function (Lead $lead) {
+                $this->cadence->stop($lead);
+                $lead->markReplied();
+            });
     }
 
     /** "Ele respondeu": a reply the system can't see, e.g. to a message sent from the user's own WhatsApp. */
@@ -292,9 +293,20 @@ class OutreachService
     {
         $lead->outreachAttempts()->whereNull('responded_at')->latest('id')->first()?->update(['responded_at' => now()]);
         $this->cadence->stop($lead);
+        $lead->markReplied();
+    }
 
-        if (in_array($lead->status ?? 'novo', ['novo', 'contatado'], true)) {
-            $lead->update(['status' => 'interessado']);
+    /** Moves the lead in the funnel (pipeline, lists). Past "abordado" the cold cadence has nothing left to do. */
+    public function setStatus(Lead $lead, string $status): void
+    {
+        if (!array_key_exists($status, Lead::STATUSES)) {
+            return;
+        }
+
+        $lead->update(['status' => $status]);
+
+        if (in_array($status, FollowUpCadence::FINAL_STATUSES, true)) {
+            $this->cadence->stop($lead, 'stopped');
         }
     }
 

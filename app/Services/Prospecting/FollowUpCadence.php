@@ -28,7 +28,7 @@ class FollowUpCadence
     ];
 
     /** Lead statuses that end the cadence: the conversation moved on, or the user gave up on the lead. */
-    private const FINAL_STATUSES = ['interessado', 'convertido', 'descartado'];
+    public const FINAL_STATUSES = ['respondeu', 'reuniao', 'proposta', 'convertido', 'descartado'];
 
     /** The empresa's "Prospecção fria" sequence, created with the default steps the first time. */
     public function sequenceFor(Empresa $empresa): Sequence

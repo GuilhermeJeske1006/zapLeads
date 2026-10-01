@@ -19,3 +19,7 @@ Broadcast::channel('conversation.{conversationId}', function ($user, $conversati
 Broadcast::channel('empresa.{empresaId}.chat', function ($user, $empresaId) {
     return (bool) ($user->empresa?->id) && (int) $user->empresa->id === (int) $empresaId;
 });
+
+Broadcast::channel('empresa.{empresaId}.prospecting', function ($user, $empresaId) {
+    return (bool) ($user->empresa?->id) && (int) $user->empresa->id === (int) $empresaId;
+});

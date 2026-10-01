@@ -6,6 +6,7 @@ use App\Http\Controllers\LangController;
 use App\Http\Controllers\LeadController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProspectingController;
 use App\Http\Controllers\PublicCatalogoController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\BillingController;
@@ -71,6 +72,7 @@ Route::middleware(['auth', 'set.locale', 'onboarding'])->group(function () {
 
     Route::get('/chat', fn () => view('chat.index'))->name('chat.index');
     Route::get('/leads', [LeadController::class, 'index'])->name('leads.index');
+    Route::get('/prospeccao', [ProspectingController::class, 'index'])->name('prospeccao.index');
 });
 
 // Admin (master admin only)

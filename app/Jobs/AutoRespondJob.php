@@ -55,8 +55,8 @@ class AutoRespondJob implements ShouldQueue
             $channel
         );
 
-        if (($result['success'] ?? false) && $this->conversation->lead && (($this->conversation->lead->status ?? 'novo') === 'novo')) {
-            $this->conversation->lead->update(['status' => 'contatado']);
+        if ($result['success'] ?? false) {
+            $this->conversation->lead?->markApproached();
         }
 
         $message->update([

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\Leads\LeadDossier;
 use App\Livewire\Leads\LeadsTable;
 use App\Livewire\SalesProfile;
 use App\Models\Empresa;
@@ -67,7 +68,7 @@ class SalesProfileTest extends TestCase
             ->assertSee(__('messages.sales_profile_desc'));
     }
 
-    public function test_lead_modal_explains_the_score(): void
+    public function test_lead_dossier_explains_the_score(): void
     {
         $lead = Lead::create([
             'empresa_id'  => $this->empresa->id,
@@ -82,8 +83,10 @@ class SalesProfileTest extends TestCase
         ]);
 
         Livewire::test(LeadsTable::class, ['empresa' => $this->empresa])
-            ->assertSeeHtml('title="' . e(__('messages.score_hint')) . '"')
-            ->call('abrirModal', $lead->id)
+            ->assertSeeHtml('title="' . e(__('messages.score_hint')) . '"');
+
+        Livewire::test(LeadDossier::class, ['empresa' => $this->empresa])
+            ->dispatch('open-lead-dossier', id: $lead->id)
             ->assertSee(__('messages.score_breakdown_title'))
             ->assertSee(__('messages.score_contact_estimated'))
             ->assertSee(__('messages.score_unknown'))

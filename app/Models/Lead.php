@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Lead extends Model
 {
@@ -98,6 +99,12 @@ class Lead extends Model
         return $this->hasMany(LeadContact::class);
     }
 
+    /** The contact enrichment picked as the lead's WhatsApp (its value is leads.telefone). */
+    public function primaryContact(): HasOne
+    {
+        return $this->hasOne(LeadContact::class)->where('is_primary', true);
+    }
+
     /** Enriched and no contact reached the minimum: only a call or the user's own WhatsApp. */
     public function lacksProbableWhatsApp(): bool
     {
@@ -137,13 +144,51 @@ class Lead extends Model
         return explode(' ', trim($this->decisor_nome))[0];
     }
 
+    /** The sales funnel, in order. Labels live in lang (messages.status_*). */
     public const STATUSES = [
-        'novo'        => ['label' => 'Novo',        'color' => 'gray'],
-        'contatado'   => ['label' => 'Contatado',   'color' => 'blue'],
-        'interessado' => ['label' => 'Interessado', 'color' => 'yellow'],
-        'convertido'  => ['label' => 'Convertido',  'color' => 'green'],
-        'descartado'  => ['label' => 'Descartado',  'color' => 'red'],
+        'novo'       => ['color' => 'gray'],
+        'abordado'   => ['color' => 'blue'],
+        'respondeu'  => ['color' => 'yellow'],
+        'reuniao'    => ['color' => 'violet'],
+        'proposta'   => ['color' => 'sky'],
+        'convertido' => ['color' => 'green'],
+        'descartado' => ['color' => 'red'],
     ];
+
+    public static function statusLabel(?string $status): string
+    {
+        return __('messages.status_' . (array_key_exists((string) $status, self::STATUSES) ? $status : 'novo'));
+    }
+
+    /** Badge/select classes for a status. */
+    public static function statusClasses(?string $status): string
+    {
+        return match (self::STATUSES[$status]['color'] ?? 'gray') {
+            'blue'   => 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+            'yellow' => 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30',
+            'violet' => 'bg-violet-500/15 text-violet-300 border-violet-500/30',
+            'sky'    => 'bg-sky-500/15 text-sky-300 border-sky-500/30',
+            'green'  => 'bg-green-500/15 text-green-300 border-green-500/30',
+            'red'    => 'bg-red-500/15 text-red-300 border-red-500/30',
+            default  => 'bg-gray-700/50 text-gray-300 border-gray-600',
+        };
+    }
+
+    /** A message reached the lead (API, the user's WhatsApp, a sequence): "novo" moves to "abordado". */
+    public function markApproached(): void
+    {
+        if (($this->status ?? 'novo') === 'novo') {
+            $this->update(['status' => 'abordado']);
+        }
+    }
+
+    /** The lead wrote back: early funnel statuses move to "respondeu", later ones are kept. */
+    public function markReplied(): void
+    {
+        if (in_array($this->status ?? 'novo', ['novo', 'abordado'], true)) {
+            $this->update(['status' => 'respondeu']);
+        }
+    }
 
     public function getScoreLabelAttribute(): string
     {

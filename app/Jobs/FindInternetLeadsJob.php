@@ -46,9 +46,12 @@ class FindInternetLeadsJob implements ShouldQueue
     /** Without this a crashed job leaves the search "running" and the UI polling forever. */
     public function failed(Throwable $e): void
     {
-        ProspectingSearch::whereKey($this->searchId)->update([
+        $search = ProspectingSearch::find($this->searchId);
+
+        $search?->update([
             'status' => 'failed',
-            'error'  => 'Erro ao buscar leads na internet. Tente novamente.',
+            'error'  => 'messages.search_failed_generic',
         ]);
+        $search?->broadcastProgress();
     }
 }

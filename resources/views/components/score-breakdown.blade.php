@@ -14,7 +14,7 @@
 
 <div class="bg-gray-800/60 rounded-xl p-4 space-y-3">
     <div class="flex items-center justify-between gap-3">
-        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">{{ __('messages.score_breakdown_title') }}</p>
+        <p class="text-xs font-semibold text-gray-300">{{ __('messages.score_breakdown_title') }}</p>
         <x-lead-score :score="$lead['lead_score'] ?? 0" />
     </div>
 
@@ -26,12 +26,12 @@
                     <div class="flex items-baseline justify-between text-xs">
                         <span class="text-gray-300">
                             {{ $labels[$part] }}
-                            <span class="text-gray-500">· {{ (int) round($weight * 100) }}%</span>
+                            <span class="text-gray-400">· {{ (int) round($weight * 100) }}%</span>
                             @if ($part === 'contatabilidade' && !empty($parts['contatabilidade_estimada']))
-                                <span class="text-gray-500">· {{ __('messages.score_contact_estimated') }}</span>
+                                <span class="text-gray-400">· {{ __('messages.score_contact_estimated') }}</span>
                             @endif
                         </span>
-                        <span class="tabular-nums {{ $value === null ? 'text-gray-500' : 'text-white font-medium' }}">
+                        <span class="tabular-nums {{ $value === null ? 'text-gray-400' : 'text-white font-medium' }}">
                             {{ $value === null ? __('messages.score_unknown') : $value }}
                         </span>
                     </div>
@@ -47,14 +47,14 @@
 
     @if (!empty($ai['gancho']))
         <div>
-            <p class="text-xs text-gray-500">{{ __('messages.score_hook') }}</p>
+            <p class="text-xs text-gray-400">{{ __('messages.score_hook') }}</p>
             <p class="text-sm text-gray-200">{{ $ai['gancho'] }}</p>
         </div>
     @endif
 
     @if (!empty($ai['dor_provavel']))
         <div>
-            <p class="text-xs text-gray-500">{{ __('messages.score_probable_pain') }}</p>
+            <p class="text-xs text-gray-400">{{ __('messages.score_probable_pain') }}</p>
             <p class="text-sm text-gray-200">{{ $ai['dor_provavel'] }}</p>
         </div>
     @endif

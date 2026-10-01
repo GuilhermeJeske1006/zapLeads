@@ -20,19 +20,27 @@
     @stack('styles')
     <style>[x-cloak] { display: none !important; }</style>
 </head>
-<body class="bg-gray-950 text-gray-100 font-inter antialiased" x-data="{ sidebarOpen: true }">
+<body class="bg-gray-950 text-gray-100 font-inter antialiased" x-data="{ sidebarOpen: false }" @keydown.escape.window="sidebarOpen = false">
 
 <div class="flex h-screen overflow-hidden">
-    {{-- Sidebar --}}
-    <aside class="flex flex-col w-64 bg-gray-900 border-r border-gray-800 transition-all duration-300 flex-shrink-0">
+    {{-- Sidebar: fixed column from md up, a drawer below it --}}
+    <div x-show="sidebarOpen" x-cloak x-transition.opacity class="fixed inset-0 z-40 bg-black/60 md:hidden" @click="sidebarOpen = false" aria-hidden="true"></div>
+
+    <aside id="app-sidebar"
+           class="hidden md:flex flex-col w-64 bg-gray-900 border-r border-gray-800 flex-shrink-0"
+           :class="sidebarOpen && 'max-md:flex max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:shadow-2xl'">
         {{-- Logo --}}
         <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-800">
-            <img src="{{ asset('brand/logo.png') }}" alt="{{ config('app.name') }}" class="h-8">
+            <img src="{{ asset('brand/logo.png') }}" alt="" class="h-8">
             <span class="text-lg font-bold text-white">{{ config('app.name') }}</span>
+            <button type="button" @click="sidebarOpen = false" aria-label="{{ __('messages.close_menu') }}"
+                    class="md:hidden ml-auto w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
         </div>
 
         {{-- Nav --}}
-        <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto" aria-label="{{ __('messages.main_menu') }}">
             @include('layouts.partials.nav')
         </nav>
 
@@ -98,18 +106,22 @@
     {{-- Main --}}
     <div class="flex-1 flex flex-col overflow-hidden min-w-0">
         {{-- Topbar --}}
-        <header class="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center gap-4">
-            <h1 class="text-lg font-semibold text-white">{{ $title ?? '' }}</h1>
+        <header class="bg-gray-900 border-b border-gray-800 px-4 sm:px-6 py-4 flex items-center gap-3 sm:gap-4">
+            <button type="button" @click="sidebarOpen = true" aria-controls="app-sidebar" :aria-expanded="sidebarOpen.toString()" aria-label="{{ __('messages.open_menu') }}"
+                    class="md:hidden w-9 h-9 -ml-1 flex items-center justify-center text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <h1 class="text-lg font-semibold text-white truncate">{{ $title ?? '' }}</h1>
             <div class="ml-auto flex items-center gap-3">
-                <a href="{{ route('lang.switch', 'pt_BR') }}"
-                   class="px-2 py-1 text-xs rounded {{ app()->getLocale() === 'pt_BR' ? 'bg-green-600 text-white' : 'text-gray-400 hover:text-white' }}">PT</a>
-                <a href="{{ route('lang.switch', 'es') }}"
-                   class="px-2 py-1 text-xs rounded {{ app()->getLocale() === 'es' ? 'bg-green-600 text-white' : 'text-gray-400 hover:text-white' }}">ES</a>
+                <a href="{{ route('lang.switch', 'pt_BR') }}" lang="pt-BR" title="Português" @if (app()->getLocale() === 'pt_BR') aria-current="true" @endif
+                   class="px-2 py-1 text-xs rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400 {{ app()->getLocale() === 'pt_BR' ? 'bg-green-600 text-white' : 'text-gray-300 hover:text-white' }}">PT</a>
+                <a href="{{ route('lang.switch', 'es') }}" lang="es" title="Español" @if (app()->getLocale() === 'es') aria-current="true" @endif
+                   class="px-2 py-1 text-xs rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400 {{ app()->getLocale() === 'es' ? 'bg-green-600 text-white' : 'text-gray-300 hover:text-white' }}">ES</a>
             </div>
         </header>
 
         {{-- Content --}}
-        <main class="flex-1 overflow-y-auto p-6">
+        <main class="flex-1 overflow-y-auto p-4 sm:p-6">
             @if (session('success'))
                 <div class="mb-4 px-4 py-3 bg-green-600/20 border border-green-600/30 rounded-xl text-green-400 text-sm">
                     {{ session('success') }}

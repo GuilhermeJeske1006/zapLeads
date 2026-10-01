@@ -254,7 +254,7 @@ class OutreachServiceTest extends TestCase
         $this->assertSame('assisted', $attempt->canal);
         $this->assertSame('Oi, Carla! Tudo bem?', $attempt->mensagem);
         $this->assertSame('sent', $draft->fresh()->status);
-        $this->assertSame('contatado', $lead->fresh()->status);
+        $this->assertSame('abordado', $lead->fresh()->status);
         $this->assertDatabaseCount('messages', 0);
     }
 
@@ -266,7 +266,18 @@ class OutreachServiceTest extends TestCase
         $this->outreach()->registerReply($lead->fresh());
 
         $this->assertNotNull(OutreachAttempt::sole()->responded_at);
-        $this->assertSame('interessado', $lead->fresh()->status);
+        $this->assertSame('respondeu', $lead->fresh()->status);
+    }
+
+    public function test_inbound_message_moves_the_lead_to_replied_but_not_backwards(): void
+    {
+        $approached = $this->lead('(47) 99280-1006');
+        $approached->update(['status' => 'abordado']);
+        $inMeeting = Lead::create(['empresa_id' => $this->empresa->id, 'nome' => 'Mesmo número', 'telefone' => '+55 47 99280-1006', 'status' => 'reuniao']);
+
+        $this->outreach()->markReplied($this->empresa->id, '+5547992801006');
+
+        $this->assertSame(['respondeu', 'reuniao'], [$approached->fresh()->status, $inMeeting->fresh()->status]);
     }
 
     public function test_lead_without_probable_whatsapp_is_not_sent_through_the_api(): void

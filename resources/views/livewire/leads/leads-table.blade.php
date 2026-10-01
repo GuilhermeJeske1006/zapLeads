@@ -1,316 +1,291 @@
-<div id="leads-table">
-    {{-- Filters --}}
-      <div class="ml-auto flex items-end mb-3 gap-2 pb-1.5">
-                <button wire:click="recalcularScores"
-                        wire:confirm="{{ __('messages.rescore_confirm') }}"
-                        title="{{ __('messages.rescore_hint') }}"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium
-                               bg-violet-500/10 hover:bg-violet-500/20 text-violet-300 border border-violet-500/30
-                               rounded-lg transition-colors">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                    </svg>
-                    {{ __('messages.rescore_leads') }}
-                </button>
+<div id="leads-table" class="space-y-4">
 
-                <button wire:click="abrirAddModal"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium
-                               bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-600/40
-                               rounded-lg transition-colors">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                    </svg>
-                    {{ __('messages.add_lead') }}
-                </button>
+    @if ($pendingDrafts > 0)
+        <a href="{{ route('prospeccao.index', ['passo' => 'abordagens']) }}"
+           class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-sm text-amber-100 hover:bg-amber-500/15
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300">
+            <span>{{ trans_choice('messages.drafts_waiting_review', $pendingDrafts, ['count' => $pendingDrafts]) }}</span>
+            <span class="font-medium underline">{{ __('messages.review_now') }}</span>
+        </a>
+    @endif
 
-                <button wire:click="deleteAllLeads"
-                        wire:confirm="{{ __('messages.delete_all_leads_confirm') }}"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium
-                               bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30
-                               rounded-lg transition-colors">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                    </svg>
-                    {{ __('messages.delete_all') }}
-                </button>
-            </div>
-    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 mb-4">
+    {{-- Ações --}}
+    <div class="flex flex-wrap items-center justify-end gap-2">
+        <a href="{{ route('prospeccao.index') }}"
+           class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            {{ __('messages.find_customers') }}
+        </a>
+
+        <button type="button" wire:click="recalcularScores" wire:confirm="{{ __('messages.rescore_confirm') }}" title="{{ __('messages.rescore_hint') }}"
+                class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-violet-500/10 hover:bg-violet-500/20 text-violet-200 border border-violet-500/30 rounded-lg transition-colors
+                       focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-300">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            {{ __('messages.rescore_leads') }}
+        </button>
+
+        <button type="button" wire:click="abrirAddModal"
+                class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-green-600/20 hover:bg-green-600/30 text-green-300 border border-green-600/40 rounded-lg transition-colors
+                       focus:outline-none focus-visible:ring-2 focus-visible:ring-green-300">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            {{ __('messages.add_lead') }}
+        </button>
+
+        <button type="button" wire:click="deleteAllLeads" wire:confirm="{{ __('messages.delete_all_leads_confirm') }}"
+                class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 rounded-lg transition-colors
+                       focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+            {{ __('messages.delete_all') }}
+        </button>
+    </div>
+
+    {{-- Filtros --}}
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4">
         <div class="flex flex-wrap items-end gap-3">
             <div class="flex-1 min-w-40">
-                <label class="block text-xs text-gray-500 mb-1">Buscar nome</label>
-                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Digite o nome..."
-                       class="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-300
-                              placeholder-gray-600 focus:outline-none focus:border-green-500">
+                <label for="leads-search" class="block text-xs text-gray-400 mb-1">{{ __('messages.search_by_name') }}</label>
+                <input id="leads-search" wire:model.live.debounce.300ms="search" type="search" placeholder="{{ __('messages.search_by_name_placeholder') }}"
+                       class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-green-500">
             </div>
 
             <div>
-                <label class="block text-xs text-gray-500 mb-1">Status</label>
-                <select wire:model.live="filterStatus"
-                        class="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-300 focus:outline-none focus:border-green-500">
-                    <option value="">Todos</option>
+                <label for="leads-status" class="block text-xs text-gray-400 mb-1">{{ __('messages.funnel_stage') }}</label>
+                <select id="leads-status" wire:model.live="filterStatus"
+                        class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 focus:outline-none focus:border-green-500">
+                    <option value="">{{ __('messages.all') }}</option>
                     @foreach (\App\Models\Lead::STATUSES as $val => $meta)
-                        <option value="{{ $val }}">{{ $meta['label'] }}</option>
+                        <option value="{{ $val }}">{{ \App\Models\Lead::statusLabel($val) }}</option>
                     @endforeach
                 </select>
             </div>
 
-            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer pb-1.5">
+            <div>
+                <label for="leads-origem" class="block text-xs text-gray-400 mb-1">{{ __('messages.lead_origin') }}</label>
+                <select id="leads-origem" wire:model.live="filterSource"
+                        class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 focus:outline-none focus:border-green-500">
+                    <option value="">{{ __('messages.all') }}</option>
+                    @foreach (array_keys(\App\Livewire\Leads\LeadsTable::ORIGENS) as $origem)
+                        <option value="{{ $origem }}">{{ __('messages.lead_source_' . $origem) }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <label class="flex items-center gap-2 text-sm text-gray-200 cursor-pointer pb-2">
                 <input wire:model.live="filterNearby" type="checkbox" class="w-4 h-4 accent-green-500">
-                📍 {{ __('messages.nearby') }}
+                {{ __('messages.nearby') }}
             </label>
 
-            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer pb-1.5">
+            <label class="flex items-center gap-2 text-sm text-gray-200 cursor-pointer pb-2">
                 <input wire:model.live="geoFilterEnabled" type="checkbox" class="w-4 h-4 accent-amber-500">
-                🗺️ Buscar por local
+                {{ __('messages.filter_by_place') }}
             </label>
 
             @if ($hasFilters)
-                <button wire:click="limparFiltros" class="text-xs text-gray-400 hover:text-white transition-colors pb-1.5">
-                    Limpar
+                <button type="button" wire:click="limparFiltros"
+                        class="text-xs text-gray-300 hover:text-white underline pb-2 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400">
+                    {{ __('messages.clear_filters') }}
                 </button>
             @endif
-
-          
         </div>
 
-        {{-- Geo filter --}}
+        {{-- Filtro por local --}}
         <div class="{{ $geoFilterEnabled ? '' : 'hidden' }} mt-4 pt-4 border-t border-gray-800" data-leads-geo-panel>
             <div class="flex flex-wrap items-center gap-3">
                 <div class="flex items-center gap-2 min-w-0">
-                    <span class="text-xs text-gray-500">Centro:</span>
+                    <span class="text-xs text-gray-400">{{ __('messages.geo_center') }}</span>
                     @if ($geoLabel)
-                        <span class="text-xs text-amber-400 truncate max-w-[520px]" title="{{ $geoLabel }}">{{ $geoLabel }}</span>
+                        <span class="text-xs text-amber-300 truncate max-w-[520px]" title="{{ $geoLabel }}">{{ $geoLabel }}</span>
                     @else
-                        <span class="text-xs text-gray-600">Clique no mapa para selecionar</span>
+                        <span class="text-xs text-gray-400">{{ __('messages.geo_center_pick') }}</span>
                     @endif
                 </div>
 
                 <div class="ml-auto flex items-end gap-2">
                     <div>
-                        <label class="block text-xs text-gray-500 mb-1">Raio (km)</label>
-                        <input wire:model.live="geoRadiusKm" type="number" min="1" max="200" step="0.5" data-leads-geo-radius
-                               class="w-28 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-300
-                                      focus:outline-none focus:border-amber-500">
+                        <label for="leads-geo-radius" class="block text-xs text-gray-400 mb-1">{{ __('messages.search_radius') }} (km)</label>
+                        <input id="leads-geo-radius" wire:model.live="geoRadiusKm" type="number" min="1" max="200" step="0.5" data-leads-geo-radius
+                               class="w-28 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 focus:outline-none focus:border-amber-500">
                     </div>
 
                     <button type="button" data-leads-geo-locate
-                            class="mb-0.5 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium
-                                   bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30
-                                   rounded-lg transition-colors">
-                        Minha localização
+                            class="mb-0.5 px-3 py-1.5 text-xs font-medium bg-amber-500/10 hover:bg-amber-500/20 text-amber-200 border border-amber-500/30 rounded-lg transition-colors
+                                   focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300">
+                        {{ __('messages.use_my_location') }}
                     </button>
 
-                    <button wire:click="resetGeoFilter"
-                            class="mb-0.5 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium
-                                   bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700
-                                   rounded-lg transition-colors">
-                        Resetar
+                    <button type="button" wire:click="resetGeoFilter"
+                            class="mb-0.5 px-3 py-1.5 text-xs font-medium bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-lg transition-colors
+                                   focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300">
+                        {{ __('messages.reset') }}
                     </button>
                 </div>
             </div>
 
-            <p class="mt-2 text-xs text-gray-600">Dica: arraste o marcador ou clique no mapa para mudar o centro da busca.</p>
+            <p class="mt-2 text-xs text-gray-400">{{ __('messages.geo_map_hint') }}</p>
 
             <div class="mt-3" style="isolation: isolate; position: relative; z-index: 0;" wire:ignore>
-                <div
-                    id="leads-geo-map"
-                    data-leads-geo-map
-                    data-mapbox-token="{{ (string) config('services.mapbox.token') }}"
-                    data-mapbox-style="{{ (string) config('services.mapbox.style', 'mapbox/streets-v12') }}"
-                    data-center-lat="{{ (string) ($empresa->latitude ?? '') }}"
-                    data-center-lng="{{ (string) ($empresa->longitude ?? '') }}"
-                    class="h-56 rounded-xl overflow-hidden bg-gray-800"
-                ></div>
+                <div id="leads-geo-map" data-leads-geo-map
+                     data-mapbox-token="{{ (string) config('services.mapbox.token') }}"
+                     data-mapbox-style="{{ (string) config('services.mapbox.style', 'mapbox/streets-v12') }}"
+                     data-center-lat="{{ (string) ($empresa->latitude ?? '') }}"
+                     data-center-lng="{{ (string) ($empresa->longitude ?? '') }}"
+                     class="h-56 rounded-xl overflow-hidden bg-gray-800"></div>
             </div>
-
-            @if (!config('services.mapbox.token'))
-                <p class="mt-2 text-xs text-yellow-300/80">
-                    Para tiles e endereço automático, defina <span class="font-mono">MAPBOX_TOKEN</span> no <span class="font-mono">.env</span>.
-                </p>
-            @endif
         </div>
     </div>
 
+    {{-- Lista --}}
     <div class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-        <table class="w-full text-sm table-fixed">
+
+        {{-- Celular: cards --}}
+        <ul class="md:hidden divide-y divide-gray-800">
+            @forelse ($leads as $lead)
+                @php $waLink = \App\Support\Phone::waMeLink($lead->telefone, $empresa->country); @endphp
+                <li wire:key="lead-card-{{ $lead->id }}" class="p-4 space-y-2">
+                    <div class="flex items-start justify-between gap-3">
+                        <button type="button" wire:click="$dispatch('open-lead-dossier', { id: {{ $lead->id }} })"
+                                class="min-w-0 text-left text-sm font-medium text-white break-words rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
+                            {{ $lead->nome }}
+                        </button>
+                        <x-lead-score :score="$lead->lead_score" class="shrink-0" />
+                    </div>
+                    <p class="text-xs text-gray-400">
+                        {{ collect([$lead->cidade, $lead->distancia_km ? number_format($lead->distancia_km, 1, ',', '') . ' km' : null])->filter()->join(' · ') }}
+                    </p>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <x-lead-status :status="$lead->status" />
+                        <x-contact-badge :status="$lead->enrichment_status" :confidence="$lead->contact_confidence" :origin="$lead->primaryContact?->origem" />
+                    </div>
+                    <div class="flex flex-wrap gap-2 pt-1">
+                        @if ($waLink)
+                            <a href="{{ $waLink }}" target="_blank" rel="noopener noreferrer"
+                               class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/30
+                                      focus:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366]">
+                                <x-icons.whatsapp class="w-3.5 h-3.5" /> {{ __('messages.whatsapp') }}
+                            </a>
+                            <button type="button" wire:click="gerarAbordagem({{ $lead->id }})"
+                                    class="px-3 py-1.5 text-xs rounded-lg bg-emerald-500/10 text-emerald-200 border border-emerald-500/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
+                                {{ __('messages.generate_outreach') }}
+                            </button>
+                        @endif
+                        <button type="button" wire:click="$dispatch('open-lead-dossier', { id: {{ $lead->id }} })"
+                                class="px-3 py-1.5 text-xs rounded-lg bg-gray-800 text-gray-200 border border-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300">
+                            {{ __('messages.view_dossier') }}
+                        </button>
+                    </div>
+                </li>
+            @empty
+                <li class="px-4 py-12 text-center text-sm text-gray-400">
+                    {{ $hasFilters ? __('messages.no_lead_found') : __('messages.no_leads_yet_cta') }}
+                </li>
+            @endforelse
+        </ul>
+
+        {{-- Desktop: tabela --}}
+        <table class="hidden md:table w-full text-sm table-fixed">
             <colgroup>
-                <col class="w-[35%]">
+                <col class="w-[34%]">
+                <col class="w-[20%]">
+                <col class="w-[14%]">
+                <col class="w-[14%]">
                 <col class="w-[18%]">
-                <col class="w-[17%]">
-                <col class="w-[15%]">
-                <col class="w-[15%]">
             </colgroup>
             <thead>
-                <tr class="border-b border-gray-800 text-xs text-gray-400 uppercase tracking-wide">
-                    <th class="px-4 py-3 text-left">Lead</th>
-                    <th class="px-3 py-3 text-left">Telefone</th>
-                    <th class="px-3 py-3 text-left">Local</th>
-                    <th class="px-3 py-3 text-left">Status</th>
-                    <th class="px-3 py-3 text-left">{{ __('messages.actions') }}</th>
+                <tr class="border-b border-gray-800 text-xs text-gray-300">
+                    <th scope="col" class="px-4 py-3 text-left font-medium">{{ __('messages.lead') }}</th>
+                    <th scope="col" class="px-3 py-3 text-left font-medium">{{ __('messages.phone') }}</th>
+                    <th scope="col" class="px-3 py-3 text-left font-medium">{{ __('messages.location') }}</th>
+                    <th scope="col" class="px-3 py-3 text-left font-medium">{{ __('messages.funnel_stage') }}</th>
+                    <th scope="col" class="px-3 py-3 text-left font-medium">{{ __('messages.actions') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-800/50">
                 @forelse ($leads as $lead)
                     @php
                         $waLink = \App\Support\Phone::waMeLink($lead->telefone, $empresa->country);
-
-                        $mapsLink = null;
-                        if (!empty($lead->latitude) && !empty($lead->longitude)) {
-                            $mapsLink = 'https://www.google.com/maps?q=' . $lead->latitude . ',' . $lead->longitude;
-                        } else {
-                            $q = trim((string) ($lead->endereco ?? ''));
-                            if (!$q) {
-                                $q = trim((string) ($lead->cidade ?? ''));
-                            }
-                            if ($q) {
-                                $mapsLink = 'https://www.google.com/maps?q=' . rawurlencode($q);
-                            }
-                        }
-
-                        $status     = $lead->status ?? 'novo';
-                        $statusMeta = \App\Models\Lead::STATUSES[$status] ?? \App\Models\Lead::STATUSES['novo'];
-                        $statusColor = match($statusMeta['color']) {
-                            'blue'   => 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-                            'yellow' => 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-                            'green'  => 'bg-green-500/20 text-green-400 border-green-500/30',
-                            'red'    => 'bg-red-500/20 text-red-400 border-red-500/30',
-                            default  => 'bg-gray-700/50 text-gray-400 border-gray-600',
-                        };
+                        $website = $lead->website && preg_match('#^https?://#i', $lead->website) ? $lead->website : null;
                     @endphp
-                    <tr class="hover:bg-gray-800/30 transition-colors">
-
-                        {{-- Lead --}}
+                    <tr wire:key="lead-row-{{ $lead->id }}" class="hover:bg-gray-800/30 transition-colors">
                         <td class="px-4 py-3">
                             <div class="flex items-center gap-2.5 min-w-0">
-                                <div class="w-7 h-7 rounded-full bg-linear-to-br from-blue-500 to-violet-600
-                                            flex items-center justify-center text-xs font-bold shrink-0">
-                                    {{ strtoupper(substr($lead->nome, 0, 1)) }}
-                                </div>
+                                <x-lead-score :score="$lead->lead_score" class="shrink-0" />
                                 <div class="min-w-0">
-                                    <div class="flex items-center gap-1.5 min-w-0">
-                                        <p class="text-white font-medium text-xs truncate" title="{{ $lead->nome }}">
-                                            {{ $lead->nome }}
-                                        </p>
-                                        <x-lead-score :score="$lead->lead_score" class="shrink-0" />
-                                    </div>
+                                    <button type="button" wire:click="$dispatch('open-lead-dossier', { id: {{ $lead->id }} })" title="{{ $lead->nome }}"
+                                            class="block max-w-full text-left text-white font-medium text-sm truncate hover:text-emerald-200 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
+                                        {{ $lead->nome }}
+                                    </button>
                                     @if ($lead->endereco)
-                                        <p class="text-gray-500 text-xs truncate" title="{{ $lead->endereco }}">
-                                            {{ $lead->endereco }}
-                                        </p>
+                                        <p class="text-gray-400 text-xs truncate" title="{{ $lead->endereco }}">{{ $lead->endereco }}</p>
                                     @endif
                                 </div>
                             </div>
                         </td>
 
-                        {{-- Telefone --}}
                         <td class="px-3 py-3">
-                            <span class="text-gray-400 font-mono text-xs block truncate">{{ $lead->telefone ?: '—' }}</span>
-                            <x-contact-badge :status="$lead->enrichment_status" :confidence="$lead->contact_confidence" />
-                            @if ($lead->website)
-                                <a href="{{ $lead->website }}" target="_blank" rel="noopener noreferrer"
-                                   title="{{ $lead->website }}"
-                                   class="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors mt-0.5 truncate max-w-full">
-                                    <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                                    </svg>
-                                    {{ parse_url($lead->website, PHP_URL_HOST) ?: $lead->website }}
-                                </a>
+                            <span class="text-gray-300 font-mono text-xs block truncate">{{ \App\Support\Phone::display($lead->telefone, $empresa->country) ?? '—' }}</span>
+                            <x-contact-badge :status="$lead->enrichment_status" :confidence="$lead->contact_confidence" :origin="$lead->primaryContact?->origem" />
+                            @if ($website)
+                                <a href="{{ $website }}" target="_blank" rel="noopener noreferrer nofollow" title="{{ $website }}"
+                                   class="block text-xs text-blue-300 hover:text-blue-200 mt-0.5 truncate max-w-full">{{ parse_url($website, PHP_URL_HOST) ?: $website }}</a>
                             @endif
                         </td>
 
-                        {{-- Local --}}
                         <td class="px-3 py-3">
                             <p class="text-gray-300 text-xs truncate">{{ $lead->cidade ?? '—' }}</p>
                             @if ($lead->distancia_km)
-                                <p class="text-xs {{ $lead->is_nearby ? 'text-green-400' : 'text-gray-500' }}">
-                                    {{ number_format($lead->distancia_km, 1) }} km
-                                </p>
+                                <p class="text-xs {{ $lead->is_nearby ? 'text-green-300' : 'text-gray-400' }}">{{ number_format($lead->distancia_km, 1, ',', '') }} km</p>
                             @endif
                         </td>
 
-                        {{-- Status --}}
                         <td class="px-3 py-3">
-                            <select wire:change="alterarStatus({{ $lead->id }}, $event.target.value)"
-                                    class="w-full text-xs px-1.5 py-1 rounded-md border {{ $statusColor }}
-                                           bg-transparent cursor-pointer focus:outline-none focus:ring-1 focus:ring-white/20">
+                            <label for="lead-status-{{ $lead->id }}" class="sr-only">{{ __('messages.funnel_stage_of', ['nome' => $lead->nome]) }}</label>
+                            <select id="lead-status-{{ $lead->id }}" wire:change="alterarStatus({{ $lead->id }}, $event.target.value)"
+                                    class="w-full text-xs px-1.5 py-1 rounded-md border bg-transparent cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 {{ \App\Models\Lead::statusClasses($lead->status) }}">
                                 @foreach (\App\Models\Lead::STATUSES as $val => $meta)
-                                    <option value="{{ $val }}"
-                                            {{ $status === $val ? 'selected' : '' }}
-                                            class="bg-gray-900 text-gray-200">
-                                        {{ $meta['label'] }}
-                                    </option>
+                                    <option value="{{ $val }}" @selected($lead->status === $val) class="bg-gray-900 text-gray-200">{{ \App\Models\Lead::statusLabel($val) }}</option>
                                 @endforeach
                             </select>
                         </td>
 
-                        {{-- Ações --}}
                         <td class="px-3 py-3">
                             <div class="flex items-center gap-1">
-                                @if ($mapsLink)
-                                    <a href="{{ $mapsLink }}" target="_blank" rel="noopener noreferrer"
-                                       title="{{ __('messages.view_location_map') }}"
-                                       class="inline-flex items-center justify-center w-7 h-7
-                                              bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30
-                                              rounded-lg transition-colors">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                  d="M12 11.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/>
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                  d="M19 10.5c0 6.5-7 11.5-7 11.5S5 17 5 10.5a7 7 0 1114 0z"/>
-                                        </svg>
-                                    </a>
-                                @endif
-
                                 @if ($waLink)
                                     <a href="{{ $waLink }}" target="_blank" rel="noopener noreferrer"
-                                       title="Abrir no WhatsApp"
-                                       class="inline-flex items-center justify-center w-7 h-7
-                                              bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366]
-                                              border border-[#25D366]/30 rounded-lg transition-colors">
-                                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                                        </svg>
+                                       title="{{ __('messages.open_in_my_whatsapp') }}" aria-label="{{ __('messages.open_whatsapp_with', ['numero' => $lead->nome]) }}"
+                                       class="inline-flex items-center justify-center w-8 h-8 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] border border-[#25D366]/30 rounded-lg transition-colors
+                                              focus:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366]">
+                                        <x-icons.whatsapp class="w-3.5 h-3.5" />
                                     </a>
 
-                                    <button wire:click="gerarAbordagem({{ $lead->id }})"
-                                            title="{{ __('messages.generate_outreach') }}"
-                                            aria-label="{{ __('messages.generate_outreach') }}"
-                                            wire:loading.attr="disabled"
-                                            wire:loading.class="opacity-60 cursor-not-allowed"
-                                            wire:target="gerarAbordagem({{ $lead->id }})"
-                                            class="inline-flex items-center justify-center w-7 h-7
-                                                   bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30
-                                                   rounded-lg transition-colors">
-                                        <span wire:loading.remove wire:target="gerarAbordagem({{ $lead->id }})">IA</span>
-                                        <span wire:loading wire:target="gerarAbordagem({{ $lead->id }})">
-                                            <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                                            </svg>
-                                        </span>
+                                    <button type="button" wire:click="gerarAbordagem({{ $lead->id }})"
+                                            wire:loading.attr="disabled" wire:target="gerarAbordagem({{ $lead->id }})"
+                                            title="{{ __('messages.generate_outreach') }}" aria-label="{{ __('messages.generate_outreach_for', ['nome' => $lead->nome]) }}"
+                                            class="inline-flex items-center justify-center w-8 h-8 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg transition-colors disabled:opacity-50
+                                                   focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                                     </button>
                                 @endif
 
-                                <button wire:click="abrirModal({{ $lead->id }})"
-                                        title="Ver detalhes"
-                                        class="inline-flex items-center justify-center w-7 h-7
-                                               bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                <button type="button" wire:click="$dispatch('open-lead-dossier', { id: {{ $lead->id }} })"
+                                        title="{{ __('messages.view_dossier') }}" aria-label="{{ __('messages.view_dossier_of', ['nome' => $lead->nome]) }}"
+                                        class="inline-flex items-center justify-center w-8 h-8 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors
+                                               focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                     </svg>
                                 </button>
 
-                                <button wire:click="deleteLead({{ $lead->id }})"
-                                        wire:confirm="Excluir lead '{{ addslashes($lead->nome) }}'?"
-                                        title="Excluir"
-                                        class="inline-flex items-center justify-center w-7 h-7
-                                               bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30
-                                               rounded-lg transition-colors">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                <button type="button" wire:click="deleteLead({{ $lead->id }})" wire:confirm="{{ __('messages.delete_lead_confirm', ['nome' => $lead->nome]) }}"
+                                        title="{{ __('messages.delete') }}" aria-label="{{ __('messages.delete_lead', ['nome' => $lead->nome]) }}"
+                                        class="inline-flex items-center justify-center w-8 h-8 bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 rounded-lg transition-colors
+                                               focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                     </svg>
                                 </button>
                             </div>
@@ -318,8 +293,8 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="5" class="px-4 py-12 text-center text-gray-500 text-sm">
-                            {{ __('messages.no_lead_found') }}
+                        <td colspan="5" class="px-4 py-12 text-center text-gray-400 text-sm">
+                            {{ $hasFilters ? __('messages.no_lead_found') : __('messages.no_leads_yet_cta') }}
                         </td>
                     </tr>
                 @endforelse
@@ -333,54 +308,44 @@
         @endif
     </div>
 
-    {{-- Select Channel Modal --}}
+    {{-- Escolher canal --}}
     @teleport('body')
-    <div
-        x-data
-        x-show="$wire.showSelectChannelModal"
-        x-cloak
-        class="fixed inset-0 flex items-center justify-center p-4"
-        style="z-index: 9999;"
-    >
-        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="fecharSelectChannelModal"></div>
+    <div x-data x-show="$wire.showSelectChannelModal" x-cloak class="fixed inset-0 flex items-center justify-center p-4" style="z-index: 9999;"
+         role="dialog" aria-modal="true" aria-labelledby="select-channel-title" @keydown.escape.window="$wire.fecharSelectChannelModal()">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="fecharSelectChannelModal" aria-hidden="true"></div>
         <div class="relative w-full max-w-md bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden">
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-800">
-                <h3 class="text-base font-semibold text-white flex items-center gap-2">
-                    <svg class="w-5 h-5 text-emerald-400" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                    </svg>
-                    Selecionar canal WhatsApp
+                <h3 id="select-channel-title" class="text-base font-semibold text-white flex items-center gap-2">
+                    <x-icons.whatsapp class="w-5 h-5 text-emerald-400" />
+                    {{ __('messages.choose_channel_title') }}
                 </h3>
-                <button wire:click="fecharSelectChannelModal"
-                        class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
+                <button type="button" wire:click="fecharSelectChannelModal" aria-label="{{ __('messages.close') }}"
+                        class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-            <div class="px-6 py-5 space-y-3">
-                <p class="text-sm text-gray-400">{{ __('messages.choose_outreach_channel') }}</p>
+            <fieldset class="px-6 py-5 space-y-3">
+                <legend class="text-sm text-gray-300">{{ __('messages.choose_outreach_channel') }}</legend>
                 <div class="space-y-2">
                     @foreach ($channels as $ch)
-                        <label class="flex items-center gap-3 p-3 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl cursor-pointer transition-colors
-                                      {{ $selectedChannelId === $ch['id'] ? 'border-emerald-500/60 bg-emerald-500/5' : '' }}">
-                            <input type="radio" wire:model.live="selectedChannelId" value="{{ $ch['id'] }}"
-                                   class="w-4 h-4 accent-emerald-500">
-                            <div>
-                                <p class="text-sm font-medium text-white">{{ $ch['nome'] }}</p>
-                                <p class="text-xs text-gray-500 font-mono">{{ $ch['numero'] }}</p>
-                            </div>
+                        <label class="flex items-center gap-3 p-3 bg-gray-800 hover:bg-gray-700 border rounded-xl cursor-pointer transition-colors
+                                      {{ $selectedChannelId === $ch['id'] ? 'border-emerald-500/60 bg-emerald-500/5' : 'border-gray-700' }}">
+                            <input type="radio" wire:model.live="selectedChannelId" value="{{ $ch['id'] }}" class="w-4 h-4 accent-emerald-500">
+                            <span>
+                                <span class="block text-sm font-medium text-white">{{ $ch['nome'] }}</span>
+                                <span class="block text-xs text-gray-400 font-mono">{{ $ch['numero'] }}</span>
+                            </span>
                         </label>
                     @endforeach
                 </div>
-            </div>
+            </fieldset>
             <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-800">
-                <button wire:click="fecharSelectChannelModal"
-                        class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm rounded-xl transition-colors">
-                    Cancelar
+                <button type="button" wire:click="fecharSelectChannelModal"
+                        class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 text-sm rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300">
+                    {{ __('messages.cancel') }}
                 </button>
-                <button wire:click="confirmarCanal"
-                        class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-xl transition-colors">
+                <button type="button" wire:click="confirmarCanal"
+                        class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
                     {{ __('messages.generate_outreach') }}
                 </button>
             </div>
@@ -388,81 +353,74 @@
     </div>
     @endteleport
 
-    {{-- Add Lead Modal --}}
+    {{-- Adicionar lead --}}
     @teleport('body')
-    <div
-        x-data
-        x-show="$wire.showAddModal"
-        x-cloak
-        class="fixed inset-0 flex items-center justify-center p-4"
-        style="z-index: 9999;"
-    >
-        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="fecharAddModal"></div>
+    <div x-data x-show="$wire.showAddModal" x-cloak class="fixed inset-0 flex items-center justify-center p-4" style="z-index: 9999;"
+         role="dialog" aria-modal="true" aria-labelledby="add-lead-title" @keydown.escape.window="$wire.fecharAddModal()">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="fecharAddModal" aria-hidden="true"></div>
 
         <div class="relative w-full max-w-lg bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden">
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-800">
-                <h3 class="text-base font-semibold text-white">{{ __('messages.add_lead') }}</h3>
-                <button wire:click="fecharAddModal"
-                        class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
+                <h3 id="add-lead-title" class="text-base font-semibold text-white">{{ __('messages.add_lead') }}</h3>
+                <button type="button" wire:click="fecharAddModal" aria-label="{{ __('messages.close') }}"
+                        class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
 
             <form wire:submit="salvarLead" class="px-6 py-5 space-y-4">
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="col-span-2">
-                        <label class="block text-xs text-gray-400 mb-1">Nome <span class="text-red-400">*</span></label>
-                        <input wire:model="addNome" type="text" placeholder="Nome completo ou empresa"
-                            class="w-full px-3 py-2 bg-gray-800 border text-white text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 {{ $errors->has('addNome') ? 'border-red-500' : 'border-gray-700' }}">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="sm:col-span-2">
+                        <label for="add-nome" class="block text-xs text-gray-300 mb-1">{{ __('messages.name') }} <span class="text-red-400" aria-hidden="true">*</span></label>
+                        <input id="add-nome" wire:model="addNome" type="text" required placeholder="{{ __('messages.add_lead_name_placeholder') }}"
+                               class="w-full px-3 py-2 bg-gray-800 border text-white text-sm rounded-lg placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 {{ $errors->has('addNome') ? 'border-red-500' : 'border-gray-700' }}">
                         @error('addNome') <p class="text-red-400 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
 
                     <div>
-                        <label class="block text-xs text-gray-400 mb-1">Telefone <span class="text-red-400">*</span></label>
-                        <input wire:model="addTelefone" type="text" placeholder="11999990000"
-                            class="w-full px-3 py-2 bg-gray-800 border text-white text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 {{ $errors->has('addTelefone') ? 'border-red-500' : 'border-gray-700' }}">
+                        <label for="add-telefone" class="block text-xs text-gray-300 mb-1">{{ __('messages.phone') }} <span class="text-red-400" aria-hidden="true">*</span></label>
+                        <input id="add-telefone" wire:model="addTelefone" type="tel" required placeholder="{{ __('messages.add_lead_phone_placeholder') }}"
+                               class="w-full px-3 py-2 bg-gray-800 border text-white text-sm rounded-lg placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 {{ $errors->has('addTelefone') ? 'border-red-500' : 'border-gray-700' }}">
                         @error('addTelefone') <p class="text-red-400 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
 
                     <div>
-                        <label class="block text-xs text-gray-400 mb-1">Status</label>
-                        <select wire:model="addStatus"
-                            class="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <label for="add-status" class="block text-xs text-gray-300 mb-1">{{ __('messages.funnel_stage') }}</label>
+                        <select id="add-status" wire:model="addStatus"
+                                class="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
                             @foreach (\App\Models\Lead::STATUSES as $val => $meta)
-                                <option value="{{ $val }}">{{ $meta['label'] }}</option>
+                                <option value="{{ $val }}">{{ \App\Models\Lead::statusLabel($val) }}</option>
                             @endforeach
                         </select>
                     </div>
 
                     <div>
-                        <label class="block text-xs text-gray-400 mb-1">Cidade</label>
-                        <input wire:model="addCidade" type="text" placeholder="São Paulo"
-                            class="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <label for="add-cidade" class="block text-xs text-gray-300 mb-1">{{ __('messages.city') }}</label>
+                        <input id="add-cidade" wire:model="addCidade" type="text"
+                               class="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
                     </div>
 
                     <div>
-                        <label class="block text-xs text-gray-400 mb-1">{{ __('messages.address') }}</label>
-                        <input wire:model="addEndereco" type="text" placeholder="Rua..."
-                            class="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <label for="add-endereco" class="block text-xs text-gray-300 mb-1">{{ __('messages.address') }}</label>
+                        <input id="add-endereco" wire:model="addEndereco" type="text"
+                               class="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
                     </div>
 
-                    <div class="col-span-2">
-                        <label class="block text-xs text-gray-400 mb-1">Website</label>
-                        <input wire:model="addWebsite" type="text" placeholder="https://..."
-                            class="w-full px-3 py-2 bg-gray-800 border text-white text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 {{ $errors->has('addWebsite') ? 'border-red-500' : 'border-gray-700' }}">
+                    <div class="sm:col-span-2">
+                        <label for="add-website" class="block text-xs text-gray-300 mb-1">{{ __('messages.website') }}</label>
+                        <input id="add-website" wire:model="addWebsite" type="url" placeholder="https://"
+                               class="w-full px-3 py-2 bg-gray-800 border text-white text-sm rounded-lg placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 {{ $errors->has('addWebsite') ? 'border-red-500' : 'border-gray-700' }}">
                         @error('addWebsite') <p class="text-red-400 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
                 </div>
 
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" wire:click="fecharAddModal"
-                        class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm rounded-xl transition-colors">
+                            class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 text-sm rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300">
                         {{ __('messages.cancel') }}
                     </button>
                     <button type="submit"
-                        class="px-5 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-xl transition-colors">
+                            class="px-5 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-green-300">
                         {{ __('messages.save_lead') }}
                     </button>
                 </div>
@@ -470,222 +428,4 @@
         </div>
     </div>
     @endteleport
-
-    {{-- Modal --}}
-    @teleport('body')
-    <div
-        x-data
-        x-show="$wire.showModal && $wire.modalLead !== null"
-        x-cloak
-        class="fixed inset-0 flex items-center justify-center p-4"
-        style="z-index: 9999;"
-    >
-    @if ($showModal && $modalLead)
-            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="fecharModal"></div>
-
-            <div class="relative w-full max-w-2xl bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden">
-                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-800">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-linear-to-br from-blue-500 to-violet-600
-                                    flex items-center justify-center text-sm font-bold text-white shrink-0">
-                            {{ strtoupper(substr($modalLead['nome'] ?? '?', 0, 1)) }}
-                        </div>
-                        <div>
-                            <h3 class="text-base font-semibold text-white">{{ $modalLead['nome'] ?? '—' }}</h3>
-                            <p class="text-xs text-gray-500">{{ $modalLead['endereco'] ?? $modalLead['cidade'] ?? '' }}</p>
-                        </div>
-                    </div>
-                    <button wire:click="fecharModal"
-                            class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                </div>
-
-                <div class="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
-                    <div class="grid grid-cols-2 gap-3">
-                        @php
-                            $mFields = [
-                                ['label' => 'Telefone',    'value' => $modalLead['telefone'] ?: null],
-                                ['label' => 'Cidade',      'value' => $modalLead['cidade']   ?: null],
-                                ['label' => __('messages.address'),    'value' => $modalLead['endereco'] ?: null],
-                                ['label' => __('messages.distance'),   'value' => isset($modalLead['distancia_km']) ? number_format((float)$modalLead['distancia_km'], 1).' km' : null],
-                                ['label' => 'Proximidade', 'value' => ($modalLead['is_nearby'] ?? false) ? 'Dentro do raio ✓' : 'Fora do raio'],
-                                ['label' => 'Status',      'value' => \App\Models\Lead::STATUSES[$modalLead['status'] ?? 'novo']['label'] ?? 'Novo'],
-                                ['label' => 'Fonte',       'value' => $modalLead['source'] ?? null],
-                                ['label' => 'Cadastrado',  'value' => isset($modalLead['created_at']) ? \Carbon\Carbon::parse($modalLead['created_at'])->format('d/m/Y H:i') : null],
-                            ];
-
-                            $modalMapsLink = null;
-                            $lat = $modalLead['latitude'] ?? null;
-                            $lng = $modalLead['longitude'] ?? null;
-                            if ($lat && $lng) {
-                                $modalMapsLink = 'https://www.google.com/maps?q=' . $lat . ',' . $lng;
-                            } else {
-                                $q = trim((string) ($modalLead['endereco'] ?? ''));
-                                if (!$q) {
-                                    $q = trim((string) ($modalLead['cidade'] ?? ''));
-                                }
-                                if ($q) {
-                                    $modalMapsLink = 'https://www.google.com/maps?q=' . rawurlencode($q);
-                                }
-                            }
-                        @endphp
-                        @foreach ($mFields as $f)
-                            @if ($f['value'])
-                                <div class="bg-gray-800/60 rounded-xl p-3">
-                                    <p class="text-xs text-gray-500 mb-0.5">{{ $f['label'] }}</p>
-                                    <p class="text-sm font-medium text-white">{{ $f['value'] }}</p>
-                                </div>
-                            @endif
-                        @endforeach
-                    </div>
-
-                    @if ($modalMapsLink)
-                        <div class="bg-gray-800/60 rounded-xl p-3">
-                            <p class="text-xs text-gray-500 mb-1">{{ __('messages.location') }}</p>
-                            <a href="{{ $modalMapsLink }}" target="_blank" rel="noopener noreferrer"
-                               class="inline-flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                          d="M12 11.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/>
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                          d="M19 10.5c0 6.5-7 11.5-7 11.5S5 17 5 10.5a7 7 0 1114 0z"/>
-                                </svg>
-                                Ver no Google Maps
-                            </a>
-                        </div>
-                    @endif
-
-                    @if (!empty($modalLead['website']))
-                        <div class="bg-gray-800/60 rounded-xl p-3">
-                            <p class="text-xs text-gray-500 mb-1">Website</p>
-                            <a href="{{ $modalLead['website'] }}" target="_blank" rel="noopener noreferrer"
-                               class="text-sm text-blue-400 hover:text-blue-300 break-all">
-                                {{ $modalLead['website'] }}
-                            </a>
-                        </div>
-                    @endif
-
-                    @if (!empty($modalLead['decisor_nome']))
-                        <div class="bg-gray-800/60 rounded-xl p-3">
-                            <p class="text-xs text-gray-400 mb-0.5">{{ __('messages.decision_maker') }}</p>
-                            <p class="text-sm font-medium text-white">
-                                {{ $modalLead['decisor_nome'] }}
-                                @if (!empty($modalLead['decisor_cargo']))
-                                    <span class="text-gray-400 font-normal">· {{ $modalLead['decisor_cargo'] }}</span>
-                                @endif
-                            </p>
-                        </div>
-                    @endif
-
-                    <div class="bg-gray-800/60 rounded-xl p-3 space-y-2">
-                        <div class="flex items-center justify-between gap-2">
-                            <p class="text-xs text-gray-400">{{ __('messages.contacts_found') }}</p>
-                            <button wire:click="buscarContatos({{ $modalLead['id'] }})"
-                                    @disabled(in_array($modalLead['enrichment_status'] ?? null, ['pending', 'running'], true))
-                                    class="text-xs text-emerald-400 hover:text-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed
-                                           focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded">
-                                {{ __('messages.find_contacts') }}
-                            </button>
-                        </div>
-                        <x-contact-badge :status="$modalLead['enrichment_status'] ?? null" :confidence="$modalLead['contact_confidence'] ?? null" />
-                        @forelse ($modalLead['contatos'] ?? [] as $contato)
-                            <div class="flex items-start justify-between gap-3 text-xs">
-                                <div class="min-w-0">
-                                    <p class="text-gray-100 truncate">
-                                        {{ __('messages.contact_type_' . $contato['tipo']) }}: <span class="font-mono">{{ $contato['valor'] }}</span>
-                                        @if ($contato['is_primary']) <span class="text-emerald-400">· {{ __('messages.primary_contact') }}</span> @endif
-                                        @if ($contato['provavel_decisor']) <span class="text-violet-300">· {{ __('messages.probable_decision_maker') }}</span> @endif
-                                    </p>
-                                    <p class="text-gray-400 truncate" title="{{ $contato['evidencia'] }}">
-                                        {{ __('messages.contact_origin_' . $contato['origem']) }}@if ($contato['evidencia']) — {{ $contato['evidencia'] }}@endif
-                                    </p>
-                                </div>
-                                @if (in_array($contato['tipo'], ['whatsapp', 'telefone'], true))
-                                    <span class="shrink-0 text-gray-300" title="{{ __('messages.whatsapp_confidence_hint') }}">{{ $contato['confianca'] }}</span>
-                                @endif
-                            </div>
-                        @empty
-                            <p class="text-xs text-gray-400">{{ __('messages.no_contacts_yet') }}</p>
-                        @endforelse
-                    </div>
-
-                    <x-score-breakdown :lead="$modalLead" />
-
-                    @if (!empty($modalLead['ai_insights']))
-                        @php $ai = $modalLead['ai_insights']; @endphp
-                        <div class="bg-violet-500/5 border border-violet-500/20 rounded-xl p-4 space-y-2">
-                            <p class="text-xs font-semibold text-violet-400 uppercase tracking-wide">{{ __('messages.ai_analysis') }}</p>
-                            @if (!empty($ai['match_motivo']))
-                                <p class="text-sm text-gray-300">{{ $ai['match_motivo'] }}</p>
-                            @endif
-                            @if (!empty($ai['rating']))
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs text-gray-400">{{ __('messages.rating_label') }}</span>
-                                    <span class="text-sm font-medium text-yellow-400">★ {{ $ai['rating'] }}</span>
-                                    @if (!empty($ai['user_ratings_total']))
-                                        <span class="text-xs text-gray-500">({{ $ai['user_ratings_total'] }})</span>
-                                    @endif
-                                </div>
-                            @endif
-                            @if (!empty($ai['sugestao_mensagem']))
-                                <div class="bg-gray-800/60 rounded-lg p-2">
-                                    <p class="text-xs text-gray-500 mb-1">{{ __('messages.message_suggestion') }}</p>
-                                    <p class="text-xs text-gray-200">{{ $ai['sugestao_mensagem'] }}</p>
-                                </div>
-                            @endif
-                        </div>
-                    @endif
-                </div>
-
-                <div class="flex items-center gap-2 flex-wrap px-6 py-4 border-t border-gray-800 bg-gray-900/50">
-                    @php
-                        $mWaLink = \App\Support\Phone::waMeLink($modalLead['telefone'] ?? null, $empresa->country);
-                    @endphp
-
-                    @if ($mWaLink)
-                        <a href="{{ $mWaLink }}" target="_blank" rel="noopener noreferrer"
-                           class="inline-flex items-center gap-2 px-4 py-2 bg-[#25D366]/10 hover:bg-[#25D366]/20
-                                  text-[#25D366] border border-[#25D366]/30 text-sm rounded-xl transition-colors">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                            </svg>
-                            Abrir WhatsApp
-                        </a>
-                    @endif
-
-                    @if (!empty($modalLead['aguardando_resposta']))
-                        <button wire:click="registrarResposta({{ $modalLead['id'] }})"
-                                class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20
-                                       text-emerald-400 border border-emerald-500/30 text-sm rounded-xl transition-colors">
-                            {{ __('messages.lead_replied') }}
-                        </button>
-                    @endif
-
-                    @if (!empty($modalLead['website']))
-                        <a href="{{ $modalLead['website'] }}" target="_blank" rel="noopener noreferrer"
-                           class="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20
-                                  text-blue-400 border border-blue-500/30 text-sm rounded-xl transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
-                            </svg>
-                            Ver site
-                        </a>
-                    @endif
-
-                    <button wire:click="fecharModal"
-                            class="ml-auto inline-flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-700
-                                   text-gray-300 text-sm rounded-xl transition-colors">
-                        Fechar
-                    </button>
-                </div>
-            </div>
-        </div>
-    @endif
-    </div>
-    @endteleport
-
 </div>

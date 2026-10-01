@@ -108,6 +108,11 @@ class Empresa extends Model
         return $this->hasMany(OutreachDraft::class);
     }
 
+    public function prospectingSearches(): HasMany
+    {
+        return $this->hasMany(ProspectingSearch::class);
+    }
+
     public function defaultChannel(): ?WhatsAppChannel
     {
         return $this->whatsappChannels()

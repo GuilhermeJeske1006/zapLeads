@@ -54,7 +54,7 @@ class ProspectingService
         $radiusKm = (float) $search->radius_km;
 
         if (!$this->placesEnabled) {
-            return $this->fail($search, 'Configuração ausente: defina GOOGLE_PLACES_API_KEY ou MAPBOX_TOKEN no .env.');
+            return $this->fail($search, 'messages.search_error_no_provider');
         }
 
         if ($customLat !== null && $customLng !== null) {
@@ -63,12 +63,13 @@ class ProspectingService
         } else {
             $coords = $this->ensureStoreCoords($empresa);
             if (!$coords) {
-                return $this->fail($search, 'Não foi possível localizar o endereço da empresa. Atualize o endereço e tente novamente.');
+                return $this->fail($search, 'messages.search_error_no_address');
             }
             $searchCity = $empresa->cidade;
         }
 
         $search->update(['status' => 'running', 'latitude' => $coords['lat'], 'longitude' => $coords['lng']]);
+        $search->advance('keywords');
 
         $keywords = $this->ai->gerarKeywordsProspeccao($search->descricao_empresa, $search->tipo_cliente, $empresa->segmentos_excluidos);
         if (empty($keywords)) {
@@ -76,6 +77,7 @@ class ProspectingService
         }
 
         $search->update(['keywords' => $keywords]);
+        $search->advance('searching', ['keywords' => count($keywords)]);
 
         try {
             $collected = $this->collectPlaces($keywords, $coords, $radiusKm, $maxResults);
@@ -101,27 +103,32 @@ class ProspectingService
 
             // Fit and pain from the AI, then lead_score. If the AI fails, leads are still scored by
             // contact and distance (and keep the fit an earlier search found).
+            $search->advance('ranking', ['empresas' => count($leads)]);
             $this->scoring->evaluate($empresa, $leads);
 
-            // Contacts, decision maker and context for the best-fit leads, in the background. Queued
-            // before "done" so the results the screen loads already show them as pending.
+            // Contacts, decision maker and context for the best-fit leads, in the background (stage
+            // "enriching"). Queued before "done" so the results the screen loads already show them as pending.
             $this->enrichment->queueSearch($search);
 
+            $search = $search->fresh();
             $search->update([
                 'status'        => 'done',
                 'results_count' => count($leads),
             ]);
+            $search->broadcastProgress();
 
-            return $search->fresh();
+            return $search;
         } catch (\Throwable $e) {
             Log::error('ProspectingService run failed', ['empresa_id' => $empresa->id, 'error' => $e->getMessage()]);
-            return $this->fail($search, $e->getMessage());
+            return $this->fail($search, 'messages.search_failed_generic');
         }
     }
 
+    /** $error is a translation key: the screen shows it in the user's language. */
     private function fail(ProspectingSearch $search, string $error): ProspectingSearch
     {
         $search->update(['status' => 'failed', 'error' => $error]);
+        $search->broadcastProgress();
 
         return $search;
     }

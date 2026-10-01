@@ -72,6 +72,20 @@ class Phone
         return in_array(self::lineType($e164), ['mobile', 'fixed_or_mobile'], true);
     }
 
+    /** How people read the number: national format at home ("(47) 99999-8888"), international abroad. */
+    public static function display(?string $raw, string $region = 'BR'): ?string
+    {
+        $e164 = self::normalize($raw, $region);
+        $number = $e164 ? self::parse($e164, $region) : null;
+        if ($number === null) {
+            return $raw !== null && trim($raw) !== '' ? trim($raw) : null;
+        }
+
+        $sameCountry = self::util()->getRegionCodeForNumber($number) === strtoupper($region);
+
+        return self::util()->format($number, $sameCountry ? PhoneNumberFormat::NATIONAL : PhoneNumberFormat::INTERNATIONAL);
+    }
+
     /** Opens a chat in the user's own WhatsApp, with $text ready to send. */
     public static function waMeLink(?string $raw, string $defaultRegion = 'BR', ?string $text = null): ?string
     {

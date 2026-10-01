@@ -118,10 +118,10 @@
                         @if ($draft->dor_hipotese || $gancho)
                             <div class="text-xs text-gray-400 space-y-0.5">
                                 @if ($gancho)
-                                    <p><span class="text-gray-500">{{ __('messages.outreach_fact_used') }}:</span> {{ $gancho }}</p>
+                                    <p><span class="text-gray-300">{{ __('messages.outreach_fact_used') }}:</span> {{ $gancho }}</p>
                                 @endif
                                 @if ($draft->dor_hipotese)
-                                    <p><span class="text-gray-500">{{ __('messages.outreach_pain_hypothesis') }}:</span> {{ $draft->dor_hipotese }}</p>
+                                    <p><span class="text-gray-300">{{ __('messages.outreach_pain_hypothesis') }}:</span> {{ $draft->dor_hipotese }}</p>
                                 @endif
                             </div>
                         @endif

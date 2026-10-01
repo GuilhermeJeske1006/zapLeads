@@ -129,9 +129,7 @@ class ChatPanel extends Component
                 ? $this->activeConversation->lead
                 : ($e164 ? Lead::where('empresa_id', $empresaId)->where('telefone_e164', $e164)->first() : null);
 
-            if ($lead && ($lead->status ?? 'novo') === 'novo') {
-                $lead->update(['status' => 'contatado']);
-            }
+            $lead?->markApproached();
         } else {
             Log::warning('WhatsApp message failed', ['message_id' => $message->id]);
         }

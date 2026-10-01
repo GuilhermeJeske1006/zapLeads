@@ -51,9 +51,7 @@ class SendWhatsAppMessageJob implements ShouldQueue
                     ? Lead::where('empresa_id', $empresaId)->where('telefone_e164', $conversation->telefone_e164)->first()
                     : null);
 
-            if ($lead && ($lead->status ?? 'novo') === 'novo') {
-                $lead->update(['status' => 'contatado']);
-            }
+            $lead?->markApproached();
         }
 
         if (!$result['success']) {

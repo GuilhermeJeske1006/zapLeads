@@ -5,7 +5,6 @@ namespace App\Livewire\Leads;
 use App\Models\Lead;
 use App\Models\Empresa;
 use App\Models\WhatsAppChannel;
-use App\Services\Enrichment\LeadEnrichmentService;
 use App\Services\GeoService;
 use App\Services\Prospecting\OutreachException;
 use App\Services\Prospecting\OutreachService;
@@ -21,10 +20,10 @@ class LeadsTable extends Component
 {
     use WithPagination;
 
-    public Empresa $empresa;
+    /** Origin filter => leads.source values. */
+    public const ORIGENS = ['internet' => ['internet'], 'manual' => ['manual'], 'catalogo' => ['internal']];
 
-    public bool $showModal = false;
-    public ?array $modalLead = null;
+    public Empresa $empresa;
 
     public bool $showSelectChannelModal = false;
     public ?int $pendingLeadId = null;
@@ -116,7 +115,7 @@ class LeadsTable extends Component
         if ($this->geoLat === null && $this->geoLng === null && $this->empresa->latitude && $this->empresa->longitude) {
             $this->geoLat = round((float) $this->empresa->latitude, 7);
             $this->geoLng = round((float) $this->empresa->longitude, 7);
-            $this->geoLabel = 'Sua empresa';
+            $this->geoLabel = __('messages.your_company');
         }
 
         $this->dispatch('leads-geo-open');
@@ -143,26 +142,20 @@ class LeadsTable extends Component
         $this->resetPage();
     }
 
-    #[On('leads-table-filter')]
-    public function aplicarFiltro(string $source = '', ?int $prospectingSearchId = null): void
+    #[On('lead-updated')]
+    public function refresh(): void
     {
-        $this->filterSource = $source;
-        $this->filterProspectingSearchId = $prospectingSearchId ? (string) $prospectingSearchId : '';
-        $this->resetPage();
+        // Re-renders with what the dossier changed.
     }
 
     public function alterarStatus(int $leadId, string $status): void
     {
-        if (!array_key_exists($status, Lead::STATUSES)) {
-            return;
-        }
-
         $lead = $this->empresa->leads()->find($leadId);
-        if (!$lead) {
+        if (!$lead || !array_key_exists($status, Lead::STATUSES)) {
             return;
         }
 
-        $lead->update(['status' => $status]);
+        app(OutreachService::class)->setStatus($lead, $status);
         $this->dispatch('toast', type: 'success', message: __('messages.status_updated'));
     }
 
@@ -234,19 +227,6 @@ class LeadsTable extends Component
         $this->channels = [];
     }
 
-    /** Looks for the lead's WhatsApp, decision maker and context in the background. */
-    public function buscarContatos(int $leadId): void
-    {
-        $lead = $this->empresa->leads()->find($leadId);
-        if (!$lead) {
-            return;
-        }
-
-        app(LeadEnrichmentService::class)->queue($lead);
-        $this->fecharModal();
-        $this->dispatch('toast', type: 'success', message: __('messages.enrichment_queued', ['nome' => $lead->nome]));
-    }
-
     /** Re-evaluates the prospect leads with the current sales profile, in the background. */
     public function recalcularScores(): void
     {
@@ -257,19 +237,6 @@ class LeadsTable extends Component
             $count === 0    => ['type' => 'info', 'message' => __('messages.rescore_nothing')],
             default         => ['type' => 'success', 'message' => __('messages.rescore_queued', ['count' => $count])],
         });
-    }
-
-    /** "Ele respondeu": the lead answered a message the system didn't see. */
-    public function registrarResposta(int $leadId): void
-    {
-        $lead = $this->empresa->leads()->find($leadId);
-        if (!$lead) {
-            return;
-        }
-
-        app(OutreachService::class)->registerReply($lead);
-        $this->fecharModal();
-        $this->dispatch('toast', type: 'success', message: __('messages.reply_registered'));
     }
 
     private function pedirAbordagem(Lead $lead, ?WhatsAppChannel $channel): void
@@ -283,29 +250,6 @@ class LeadsTable extends Component
 
         $this->dispatch('outreach-requested');
         $this->dispatch('toast', type: 'success', message: __('messages.outreach_requested', ['nome' => $lead->nome]));
-    }
-
-    public function abrirModal(int $leadId): void
-    {
-        $lead = $this->empresa->leads()->find($leadId);
-        if (!$lead) {
-            return;
-        }
-        $this->modalLead = $lead->toArray() + [
-            'aguardando_resposta' => $lead->outreachAttempts()->whereNull('responded_at')->exists(),
-            'contatos'            => $lead->contacts()
-                ->orderByDesc('is_primary')
-                ->orderByDesc('confianca')
-                ->get(['tipo', 'valor', 'confianca', 'origem', 'evidencia', 'is_primary', 'provavel_decisor'])
-                ->toArray(),
-        ];
-        $this->showModal  = true;
-    }
-
-    public function fecharModal(): void
-    {
-        $this->showModal  = false;
-        $this->modalLead  = null;
     }
 
     public function abrirAddModal(): void
@@ -390,12 +334,11 @@ class LeadsTable extends Component
 
     public function render()
     {
-        $sources = $this->empresa->leads()->whereNotNull('source')->distinct()->pluck('source')->sort()->values();
-
         $query = $this->empresa->leads()
+            ->with('primaryContact:id,lead_id,origem')
             ->when($this->search, fn ($q) => $q->where('nome', 'like', '%' . $this->search . '%'))
-            ->when($this->filterStatus, fn ($q) => $q->where('status', $this->filterStatus))
-            ->when($this->filterSource, fn ($q) => $q->where('source', $this->filterSource))
+            ->when(array_key_exists($this->filterStatus, Lead::STATUSES), fn ($q) => $q->where('status', $this->filterStatus))
+            ->when(isset(self::ORIGENS[$this->filterSource]), fn ($q) => $q->whereIn('source', self::ORIGENS[$this->filterSource]))
             ->when($this->filterProspectingSearchId !== '', fn ($q) => $q->where('prospecting_search_id', (int) $this->filterProspectingSearchId))
             ->when($this->filterNearby, fn ($q) => $q->where('is_nearby', true))
             ->when($this->filterMinScore !== '', fn ($q) => $q->where('lead_score', '>=', (int) $this->filterMinScore));
@@ -468,6 +411,10 @@ class LeadsTable extends Component
             || $this->filterMinScore !== ''
             || $this->geoFilterEnabled;
 
-        return view('livewire.leads.leads-table', compact('leads', 'sources', 'hasFilters'));
+        return view('livewire.leads.leads-table', [
+            'leads'         => $leads,
+            'hasFilters'    => $hasFilters,
+            'pendingDrafts' => $this->empresa->outreachDrafts()->whereIn('status', ['generating', 'draft'])->count(),
+        ]);
     }
 }
