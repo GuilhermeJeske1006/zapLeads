@@ -158,6 +158,8 @@
 
 ### 0e — Unificar envio de prospecção
 
+> **Status:** concluída em 2026-09-30. `OutreachService::assertReachable/prepare/send` + `OutreachException` (motivo → chave de tradução). O rascunho já é persistido em `outreach_drafts` (a Fase 1 acrescenta variantes e a fila de revisão). A conversa só é criada no envio (antes ficava uma conversa vazia quando a geração falhava) e mantém o canal com que o contato já fala.
+
 - Criar `app/Services/Prospecting/OutreachService.php` com `prepare(Lead $lead, ?WhatsAppChannel $channel): OutreachDraft` e `send(OutreachDraft $draft)`.
 - `InternetProspector` e `LeadsTable` passam a usar esse serviço (checagens de telefone, opt-out, canal e janela 24h num lugar só).
 
@@ -554,8 +556,8 @@ PASSO 4 — Acompanhar (pipeline kanban)
 3. `fix(phones): canonical E.164 with libphonenumber and Brazilian ninth digit` (0b)
 4. `fix(prospecting): follow searches by id, real provider, area-bound paging` (0c)
 5. `refactor(ai): model tiers, structured outputs and batched ranking` (0d)
-6. `refactor: OutreachService unifica envio` (0e)
-7. `chore: remove LeadFinder` (0f)
+6. `refactor(outreach): one service decides and sends prospect outreach` (0e)
+7. `chore: remove LeadFinder, an unused component that rendered an empty div` (0f)
 8. `feat: janela 24h + templates Twilio + modo assistido` (1)
 9. `feat: fila de revisão de abordagens e limites diários` (1)
 10. `feat: lead_contacts + pipeline de enriquecimento` (2)

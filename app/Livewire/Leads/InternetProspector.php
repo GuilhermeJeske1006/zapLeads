@@ -5,12 +5,10 @@ namespace App\Livewire\Leads;
 use App\Models\Empresa;
 use App\Models\Lead;
 use App\Models\ProspectingSearch;
-use App\Models\Conversation;
-use App\Models\Message;
 use App\Jobs\FindInternetLeadsJob;
-use App\Jobs\SendWhatsAppMessageJob;
-use App\Services\AIService;
 use App\Services\Geo\GeocodingService;
+use App\Services\Prospecting\OutreachException;
+use App\Services\Prospecting\OutreachService;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -202,62 +200,17 @@ class InternetProspector extends Component
         ]);
     }
 
-    public function enviarMensagemIA(int $leadId, AIService $ai): void
+    public function enviarMensagemIA(int $leadId): void
     {
         $lead = $this->empresa->leads()->findOrFail($leadId);
+        $outreach = app(OutreachService::class);
 
-        if (!trim((string) $lead->telefone)) {
-            $this->dispatch('toast', type: 'error', message: __('messages.lead_no_phone'));
+        try {
+            $outreach->send($outreach->prepare($lead));
+        } catch (OutreachException $e) {
+            $this->dispatch('toast', type: 'error', message: __($e->messageKey()));
             return;
         }
-
-        if (!$lead->telefone_e164) {
-            $this->dispatch('toast', type: 'error', message: __('messages.lead_invalid_phone'));
-            return;
-        }
-
-        if ($lead->isOptedOut()) {
-            $this->dispatch('toast', type: 'error', message: __('messages.lead_opted_out'));
-            return;
-        }
-
-        $channel = $this->empresa->defaultChannel();
-        if (!$channel) {
-            $this->dispatch('toast', type: 'error', message: __('messages.whatsapp_channel_required'));
-            return;
-        }
-
-        $conversation = Conversation::firstOrCreate(
-            ['empresa_id' => $this->empresa->id, 'telefone_e164' => $lead->telefone_e164],
-            ['telefone' => $lead->telefone, 'lead_id' => $lead->id, 'nome_contato' => $lead->nome, 'status' => 'active', 'whatsapp_channel_id' => $channel->id]
-        );
-
-        if (!$conversation->whatsapp_channel_id) {
-            $conversation->update(['whatsapp_channel_id' => $channel->id]);
-        }
-
-        $text = $ai->gerarPrimeiraMensagemProspeccao($this->empresa, $lead);
-        if (!trim($text)) {
-            $this->dispatch('toast', type: 'error', message: __('messages.message_generation_failed'));
-            return;
-        }
-
-        $msg = Message::create([
-            'conversation_id' => $conversation->id,
-            'sender' => 'user',
-            'message' => $text,
-            'type' => 'text',
-            'status' => 'sending',
-            'ai_generated' => true,
-        ]);
-
-        SendWhatsAppMessageJob::dispatch($msg);
-
-        $conversation->update([
-            'last_message' => $text,
-            'last_message_at' => now(),
-            'status' => 'active',
-        ]);
 
         $this->dispatch('toast', type: 'success', message: __('messages.message_sent_ai'));
     }
